@@ -75,10 +75,6 @@ cc_binary {
     name: "android.hardware.security.keymint-service.strongbox-thales",
     relative_install_path: "hw",
     init_rc: ["android.hardware.security.keymint-service.strongbox-thales.rc"],
-    vintf_fragments: [
-        "android.hardware.security.keymint-service.strongbox-thales.xml",
-        "android.hardware.security.sharedsecret-service.strongbox-thales.xml",
-    ],
     vendor: true,
     cflags: [
         "-Wall",
@@ -105,15 +101,19 @@ cc_binary {
     ],
     required: [
         "RemoteProvisioner",
-        "android.hardware.strongbox_keystore-thales.xml",
     ],
 }
 
 prebuilt_etc {
-    name: "android.hardware.strongbox_keystore-thales.xml",
-    sub_dir: "permissions",
+    name: "android.hardware.security.keymint-service.strongbox-thales.xml",
+    src: "android.hardware.security.keymint-service.strongbox-thales.xml",
+    relative_install_path: "vintf/manifest",
     vendor: true,
-    src: "android.hardware.strongbox_keystore-thales.xml",
 }
 
-
+prebuilt_etc {
+    name: "android.hardware.security.sharedsecret-service.strongbox-thales.xml",
+    src: "android.hardware.security.sharedsecret-service.strongbox-thales.xml",
+    relative_install_path: "vintf/manifest",
+    vendor: true,
+}

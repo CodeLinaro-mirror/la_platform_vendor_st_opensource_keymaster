@@ -13,6 +13,9 @@
 // limitations under the License.
 //
 
+//To compile Keymint 1.0 HAL please remove the below block comment
+
+/*
 cc_library {
     name: "libjc_keymint-thales",
     defaults: [
@@ -114,5 +117,4 @@ prebuilt_etc {
     vendor: true,
     src: "android.hardware.strongbox_keystore-thales.xml",
 }
-
-
+*/
