@@ -75,6 +75,9 @@ cc_binary {
     name: "android.hardware.security.keymint-service.strongbox-thales",
     relative_install_path: "hw",
     init_rc: ["android.hardware.security.keymint-service.strongbox-thales.rc"],
+    vintf_fragments: [
+        "secure_element-service.xml",
+    ],
     vendor: true,
     cflags: [
         "-Wall",

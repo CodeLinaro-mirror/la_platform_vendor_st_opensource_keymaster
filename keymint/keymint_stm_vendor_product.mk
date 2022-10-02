@@ -2,8 +2,8 @@
 ESE_ST_VENDOR_KEYMINT += android.hardware.security.keymint-service.strongbox-thales
 
 ifeq ($(strip $(ENABLE_ESE_ST_KEYMINT_SPLIT_MANIFEST)),true)
-ESE_ST_VENDOR_KEYMINT += android.hardware.security.keymint-service.strongbox.xml
-ESE_ST_VENDOR_KEYMINT += android.hardware.security.sharedsecret-service.strongbox.xml
+ESE_ST_VENDOR_KEYMINT += android.hardware.security.keymint-service.strongbox-thales.xml
+ESE_ST_VENDOR_KEYMINT += android.hardware.security.sharedsecret-service.strongbox-thales.xml
 endif
 
 ifeq ($(strip $(ENABLE_ESE_ST_KEYMINT_FEATURE_XML)),true)
