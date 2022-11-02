@@ -1,5 +1,5 @@
-#Kalama specific build rules
-ifeq ($(TARGET_BOARD_PLATFORM),kalama)
+#pineapple specific build rules
+ifeq ($(TARGET_BOARD_PLATFORM),pineapple)
 TARGET_USES_ESE_ST_KEYMINT := false
 ENABLE_ESE_ST_KEYMINT_FEATURE_XML := false
 ENABLE_ESE_ST_KEYMINT_SPLIT_MANIFEST := false
