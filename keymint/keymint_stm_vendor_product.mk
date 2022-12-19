@@ -12,5 +12,4 @@ endif
 
 ifeq ($(strip $(TARGET_USES_ESE_ST_KEYMINT)),true)
 PRODUCT_PACKAGES += $(ESE_ST_VENDOR_KEYMINT)
-PRODUCT_COPY_FILES += vendor/st/opensource/keymaster/keymint/2.0/hal/etc/hal_uuid_map_config.xml:$(TARGET_COPY_OUT_VENDOR)/etc/hal_uuid_map_config.xml
 endif
