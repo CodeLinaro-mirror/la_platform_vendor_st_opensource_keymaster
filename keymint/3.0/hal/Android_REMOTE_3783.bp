@@ -13,10 +13,8 @@
 // limitations under the License.
 //
 
-//To compile Keymint 2.0 HAL please remove the below block comment
-/*
 cc_library {
-    name: "libjc_keymint-thales",
+    name: "libjc_keymint",
     defaults: [
     	"keymaster_defaults",
     ],
@@ -42,7 +40,7 @@ cc_library {
         "liblog",
         "libcrypto",
         "libcutils",
-        "libjc_keymint_transport-thales",
+        "libjc_keymint_transport",
         "libbinder_ndk",
     ],
     export_include_dirs: [
@@ -52,7 +50,7 @@ cc_library {
 }
 
 cc_library {
-    name: "libjc_keymint_transport-thales",
+    name: "libjc_keymint_transport",
     vendor_available: true,
     srcs: [
         "SocketTransport.cpp",
@@ -72,9 +70,13 @@ cc_library {
 }
 
 cc_binary {
-    name: "android.hardware.security.keymint-service.strongbox-thales",
+    name: "android.hardware.security.keymint-service.strongbox",
     relative_install_path: "hw",
-    init_rc: ["android.hardware.security.keymint-service.strongbox-thales.rc"],
+    init_rc: ["android.hardware.security.keymint-service.strongbox.rc"],
+    vintf_fragments: [
+        "android.hardware.security.keymint-service.strongbox.xml",
+        "android.hardware.security.sharedsecret-service.strongbox.xml",
+    ],
     vendor: true,
     cflags: [
         "-Wall",
@@ -88,8 +90,8 @@ cc_binary {
         "libcppbor_external",
         "libcrypto",
         "libkeymaster_portable",
-        "libjc_keymint-thales",
-        "libjc_keymint_transport-thales",
+        "libjc_keymint",
+        "libjc_keymint_transport",
         "liblog",
         "libutils",
         "android.se.omapi-V1-ndk",
@@ -99,21 +101,15 @@ cc_binary {
     ],
     required: [
         "RemoteProvisioner",
+        "android.hardware.strongbox_keystore.xml",
     ],
 }
 
 prebuilt_etc {
-    name: "android.hardware.security.keymint-service.strongbox-thales.xml",
-    src: "android.hardware.security.keymint-service.strongbox-thales.xml",
-    relative_install_path: "vintf/manifest",
+    name: "android.hardware.strongbox_keystore.xml",
+    sub_dir: "permissions",
     vendor: true,
+    src: "android.hardware.strongbox_keystore.xml",
 }
 
-prebuilt_etc {
-    name: "android.hardware.security.sharedsecret-service.strongbox-thales.xml",
-    src: "android.hardware.security.sharedsecret-service.strongbox-thales.xml",
-    relative_install_path: "vintf/manifest",
-    vendor: true,
-}
 
-*/
