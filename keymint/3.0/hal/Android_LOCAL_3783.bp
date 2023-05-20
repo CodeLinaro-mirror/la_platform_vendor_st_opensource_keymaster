@@ -13,9 +13,6 @@
 // limitations under the License.
 //
 
-//To compile Keymint 1.0 HAL please remove the below block comment
-
-/*
 cc_library {
     name: "libjc_keymint-thales",
     defaults: [
@@ -70,6 +67,7 @@ cc_library {
         "liblog",
         "libbinder_ndk",
         "android.se.omapi-V1-ndk",
+        "libhardware"
     ],
 }
 
@@ -86,6 +84,9 @@ cc_binary {
         "-Wall",
         "-Wextra",
     ],
+    defaults: [
+        "keymint_use_latest_hal_aidl_ndk_shared",
+    ],
     shared_libs: [
         "android.hardware.security.sharedsecret-V1-ndk",
         "libbase",
@@ -99,13 +100,11 @@ cc_binary {
         "libutils",
         "android.se.omapi-V1-ndk",
     ],
-    defaults: [
-    	"keymint_use_latest_hal_aidl_ndk_shared",
-    ],
     srcs: [
         "service.cpp",
     ],
     required: [
+        "RemoteProvisioner",
         "android.hardware.strongbox_keystore-thales.xml",
     ],
 }
@@ -116,4 +115,5 @@ prebuilt_etc {
     vendor: true,
     src: "android.hardware.strongbox_keystore-thales.xml",
 }
-*/
+
+
