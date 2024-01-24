@@ -1,0 +1,31 @@
+
+cc_binary {
+    relative_install_path: "hw",
+    name: "android.hardware.weaver-service.thales",
+    init_rc: ["1.0/android.hardware.weaver-service.thales.rc"],
+    vintf_fragments: ["1.0/android.hardware.weaver-service.thales.xml"],
+    proprietary: true,
+    srcs: [
+        "1.0/WeaverService.cpp",
+        "1.0/Weaver.cpp",
+    ],
+
+    shared_libs: [
+        "android.hardware.weaver-V2-ndk",
+        "ese_weaver_thales",
+        "libbase",
+        "liblog",
+        "libbinder_ndk",
+    ],
+
+    local_include_dirs: [
+        "libese_weaver/inc/"
+    ],
+
+    include_dirs: [
+    ],
+    cflags: [
+        "-Wall",
+        "-fexceptions",
+    ],
+}
