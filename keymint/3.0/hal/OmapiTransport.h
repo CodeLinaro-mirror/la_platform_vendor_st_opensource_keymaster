@@ -16,6 +16,10 @@
 
 #include "ITransport.h"
 
+// Session timeout
+#define SESSION_TIMEOUT_20S (20000)  // 20 s
+#define SESSION_TIMEOUT_300S (300000) // 300s
+
 namespace keymint::javacard {
 using std::vector;
 
