@@ -26,6 +26,9 @@
 #include <android-base/logging.h>
 #include <android-base/properties.h>
 
+#define ENABLE_SESSION_TIMEOUT
+#include "SessionTimer.h"
+
 #define PROP_KEYMINT_CLOSE_CHANNEL "vendor.keymint.closechannel"
 #define PROP_KEYMINT_VENDOR "persist.vendor.keymint.applet"
 
@@ -43,10 +46,15 @@ constexpr const char omapiServiceName[] =
 
 class SEListener : public ::aidl::android::se::omapi::BnSecureElementListener {};
 
+#ifdef ENABLE_SESSION_TIMEOUT
+Timer sessionTimer;
+#endif
 
 keymaster_error_t OmapiTransport::initialize() {
 
     LOG(DEBUG) << "Initialize the secure element connection";
+
+	sessionTimer.count = 0;
 
     if(android::base::GetProperty(PROP_KEYMINT_VENDOR, "") != "Google") {
         LOG(DEBUG) << "Initialize the AID to be Thales";
@@ -124,28 +132,6 @@ keymaster_error_t OmapiTransport::initialize() {
         return static_cast<keymaster_error_t>(KM_ERROR_HARDWARE_TYPE_UNAVAILABLE);
     }
 
-    status = eSEReader->openSession(&session);
-    if (!status.isOk()) {
-        LOG(ERROR) << "openSession error: " << status.getMessage();
-        return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
-    }
-    if (session == nullptr) {
-        LOG(ERROR) << "Could not open session null";
-        return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
-    }
-
-    std::vector<uint8_t> aid(KEYMINT_APPLET_AID, KEYMINT_APPLET_AID + size);
-    auto mSEListener = ndk::SharedRefBase::make<SEListener>();
-    status = session->openLogicalChannel(aid, 0x00, mSEListener, &channel);
-    if (!status.isOk()) {
-        LOG(ERROR) << "openLogicalChannel error: " << status.getMessage();
-        return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
-    }
-    if (channel == nullptr) {
-        LOG(ERROR) << "Could not open channel null";
-        return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
-    }
-
     return KM_ERROR_OK;
 }
 
@@ -154,6 +140,13 @@ bool OmapiTransport::internalTransmitApdu(
     std::vector<uint8_t> apdu, std::vector<uint8_t>& transmitResponse) {
 
     LOG(DEBUG) << "internalTransmitApdu: trasmitting data to secure element";
+
+#ifdef ENABLE_SESSION_TIMEOUT
+    // Stop the timer
+    LOG(DEBUG) << "Stop timeout if any.";
+    sessionTimer.stop();
+#endif
+
     if (reader == nullptr) {
         LOG(ERROR) << "eSE reader is null";
         return false;
@@ -228,6 +221,20 @@ bool OmapiTransport::internalTransmitApdu(
         return false;
     }
 
+#ifdef ENABLE_SESSION_TIMEOUT
+    LOG(DEBUG) << "Start timeout before closing channels ";
+    if ( apdu.size() > 2 && apdu.at(1) == 0x30 ) {
+        sessionTimer.count++;
+    } else if ( apdu.size() > 2 && ( apdu.at(1) == 0x32 || apdu.at(1) == 0x33) ) {
+        sessionTimer.count--;
+    }
+    if ( sessionTimer.count > 0 ) {
+        sessionTimer.start(SESSION_TIMEOUT_300S, this);
+    } else {
+        sessionTimer.start(SESSION_TIMEOUT_20S, this);
+    }
+#endif
+
     return true;
 }
 
@@ -260,6 +267,7 @@ keymaster_error_t OmapiTransport::sendData(const vector<uint8_t>& inData, vector
                 closeConnection();
             return KM_ERROR_OK;
         } else {
+            closeConnection();
             return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
         }
     } else {
@@ -280,6 +288,8 @@ keymaster_error_t OmapiTransport::closeConnection() {
             mVSReaders.clear();
         }
     }
+    omapiSeService = nullptr;
+    eSEReader = nullptr;
     return KM_ERROR_OK;
 }
 
