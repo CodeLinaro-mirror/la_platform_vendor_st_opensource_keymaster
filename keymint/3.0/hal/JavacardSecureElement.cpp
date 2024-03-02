@@ -33,12 +33,18 @@
 
 namespace keymint::javacard {
 
+bool initialized = false;
+
 keymaster_error_t JavacardSecureElement::initializeJavacard() {
     Array request;
     request.add(Uint(getOsVersion()));
     request.add(Uint(getOsPatchlevel()));
     request.add(Uint(getVendorPatchlevel()));
+    if(initialized)
+        return KM_ERROR_OK;
     auto [item, err] = sendRequest(Instruction::INS_INIT_STRONGBOX_CMD, request);
+    if(err == KM_ERROR_OK)
+        initialized = true;
     return err;
 }
 
@@ -120,9 +126,11 @@ keymaster_error_t JavacardSecureElement::sendData(Instruction ins, std::vector<u
 
     // Response size should be greater than 2. Cbor output data followed by two bytes of APDU
     // status.
-    if ((response.size() <= 2) || (getApduStatus(response) != APDU_RESP_STATUS_OK)) {
-        LOG(ERROR) << "Response of the sendData is wrong: response size = " << response.size()
-                   << " apdu status = " << getApduStatus(response);
+    if (response.size() <= 2){
+        LOG(ERROR) << "Response of the sendData is wrong: response size = " << response.size();
+        return (KM_ERROR_UNKNOWN_ERROR);
+    } else if (getApduStatus(response) != APDU_RESP_STATUS_OK) {
+        LOG(ERROR) << "Response of the sendData is wrong: response size = apdu status = " << getApduStatus(response);
         return (KM_ERROR_UNKNOWN_ERROR);
     }
     // remove the status bytes
