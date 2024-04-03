@@ -48,7 +48,7 @@ cc_library {
     ],
     cflags: [
         "-DOMAPI_TRANSPORT",
-        "-DINTERVAL_TIMER",
+        "-DENABLE_SESSION_TIMEOUT",
     ],
     export_include_dirs: [
         "transport/include"

@@ -1,22 +1,22 @@
 /*
-**
-** Copyright 2018, The Android Open Source Project
-**
-** Licensed under the Apache License, Version 2.0 (the "License");
-** you may not use this file except in compliance with the License.
-** You may obtain a copy of the License at
-**
-**     http://www.apache.org/licenses/LICENSE-2.0
-**
-** Unless required by applicable law or agreed to in writing, software
-** distributed under the License is distributed on an "AS IS" BASIS,
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-** See the License for the specific language governing permissions and
-** limitations under the License.
-*/
+ **
+ ** Copyright 2020, The Android Open Source Project
+ **
+ ** Licensed under the Apache License, Version 2.0 (the "License");
+ ** you may not use this file except in compliance with the License.
+ ** You may obtain a copy of the License at
+ **
+ **     http://www.apache.org/licenses/LICENSE-2.0
+ **
+ ** Unless required by applicable law or agreed to in writing, software
+ ** distributed under the License is distributed on an "AS IS" BASIS,
+ ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ ** See the License for the specific language governing permissions and
+ ** limitations under the License.
+ */
 /******************************************************************************
  **
- ** The original Work has been changed by NXP.
+ ** The original Work has been changed by THALES.
  **
  ** Licensed under the Apache License, Version 2.0 (the "License");
  ** you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
  ** See the License for the specific language governing permissions and
  ** limitations under the License.
  **
- ** Copyright 2020-2021 NXP
+ ** Copyright ©2023-2024 THALES. All rights Reserved.
  **
  *********************************************************************************/
 #define LOG_TAG "OmapiTransport"
@@ -136,7 +136,6 @@ bool AppletConnection::selectApplet(std::vector<uint8_t>& resp, uint8_t p2) {
           resp = selectResponse.selectResponse;
           mOpenChannel = selectResponse.channelNumber;
           stat = true;
-          mSBAccessController.parseResponse(resp);
           LOG(INFO) << "openLogicalChannel:" << toString(status) << " channelNumber ="
                     << ::android::hardware::toString(selectResponse.channelNumber) << " "
                     << selectResponse.selectResponse;
@@ -164,23 +163,7 @@ bool AppletConnection::openChannelToApplet(std::vector<uint8_t>& resp) {
     LOG(INFO) << "channel Already opened";
     return true;
   }
-  if (isStrongBox) {
-      if (!mSBAccessController.isSelectAllowed()) {
-          prepareErrorRepsponse(resp);
-          return false;
-      }
-      do {
-          if (selectApplet(resp, SELECT_P2_VALUE_0) || selectApplet(resp, SELECT_P2_VALUE_2)) {
-              ret = true;
-              break;
-          }
-          LOG(INFO) << " openChannelToApplet retry after 2 secs";
-          usleep(2 * ONE_SEC);
-      } while (++retry < MAX_RETRY_COUNT);
-  } else {
-      ret = selectApplet(resp, 0x0);
-  }
-
+  ret = selectApplet(resp, 0x0);
   return ret;
 }
 
@@ -190,15 +173,7 @@ bool AppletConnection::transmit(std::vector<uint8_t>& CommandApdu , std::vector<
     LOGD_OMAPI("Channel number " << ::android::hardware::toString(mOpenChannel));
 
     if (mSEClient == nullptr) return false;
-    if (isStrongBox) {
-        if (!mSBAccessController.isOperationAllowed(CommandApdu[APDU_INS_OFFSET])) {
-            std::vector<uint8_t> ins;
-            ins.push_back(CommandApdu[APDU_INS_OFFSET]);
-            LOG(ERROR) << "command Ins:" << ins << " not allowed";
-            prepareErrorRepsponse(output);
-            return false;
-        }
-    }
+    
     // block any fatal signal delivery
     SignalHandler::getInstance()->blockSignals();
 
@@ -213,7 +188,7 @@ bool AppletConnection::transmit(std::vector<uint8_t>& CommandApdu , std::vector<
 }
 
 int AppletConnection::getSessionTimeout() {
-    return mSBAccessController.getSessionTimeout();
+    return 0;
 }
 
 bool AppletConnection::close() {
