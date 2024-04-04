@@ -147,78 +147,6 @@ bool OmapiTransport::initialize() {
     return true;
 }
 
-bool OmapiTransport::internalTransmitApdu(
-        std::shared_ptr<aidl::android::se::omapi::ISecureElementReader> reader,
-        std::vector<uint8_t> apdu, std::vector<uint8_t>& transmitResponse) {
-    //auto mSEListener = std::make_shared<SEListener>();
-    auto mSEListener = ndk::SharedRefBase::make<SEListener>();
-    std::vector<uint8_t> selectResponse = {};
-    /*std::vector<uint8_t> SELECTABLE_AID = {0xA0, 0x00, 0x00, 0x04, 0x76, 0x41, 0x6E, 0x64,
-        0x72, 0x6F, 0x69, 0x64, 0x43, 0x54, 0x53, 0x31};*/
-
-
-    LOG(DEBUG) << "internalTransmitApdu: trasmitting data to secure element";
-
-    if (reader == nullptr) {
-        LOG(ERROR) << "eSE reader is null";
-        return false;
-    }
-
-    bool status = false;
-    auto res = reader->isSecureElementPresent(&status);
-    if (!res.isOk()) {
-        LOG(ERROR) << "isSecureElementPresent error: " << res.getMessage();
-        return false;
-    }
-    if (!status) {
-        LOG(ERROR) << "secure element not found";
-        return false;
-    }
-
-    res = reader->openSession(&session);
-    if (!res.isOk()) {
-        LOG(ERROR) << "openSession error: " << res.getMessage();
-        return false;
-    }
-    if (session == nullptr) {
-        LOG(ERROR) << "Could not open session null";
-        return false;
-    }
-
-    res = session->openLogicalChannel(mSelectableAid, 0x00, mSEListener, &channel);
-    if (!res.isOk()) {
-        LOG(ERROR) << "openLogicalChannel error: " << res.getMessage();
-        return false;
-    }
-    if (channel == nullptr) {
-        LOG(ERROR) << "Could not open channel null";
-        return false;
-    }
-
-    res = channel->getSelectResponse(&selectResponse);
-    if (!res.isOk()) {
-        LOG(ERROR) << "getSelectResponse error: " << res.getMessage();
-        return false;
-    }
-    if (selectResponse.size() < 2) {
-        LOG(ERROR) << "getSelectResponse size error";
-        return false;
-    }
-
-    res = channel->transmit(apdu, &transmitResponse);
-    if (channel != nullptr) channel->close();
-    if (session != nullptr) session->close();
-
-    LOG(INFO) << "STATUS OF TRNSMIT: " << res.getExceptionCode() << " Message: "
-              << res.getMessage();
-    if (!res.isOk()) {
-        LOG(ERROR) << "transmit error: " << res.getMessage();
-        return false;
-    }
-
-    return true;
-}
-
 bool OmapiTransport::openConnection() {
 
     // if already conection setup done, no need to initialise it again.
@@ -334,18 +262,16 @@ bool OmapiTransport::internalProtectedTransmitApdu(
             LOG(ERROR) << "getSelectResponse error: " << res.getMessage();
             return false;
         }
-        if (selectResponse.size() < 2) {
-            LOG(ERROR) << "getSelectResponse size error";
+        if ((selectResponse.size() < 2)
+            || ((selectResponse[selectResponse.size() -1] & 0xFF) != 0x00)
+            || ((selectResponse[selectResponse.size() -2] & 0xFF) != 0x90))
+        {
+            LOG(ERROR) << "Failed to select the Applet.";
             return false;
         }
     }
 
     res = channel->transmit(apdu, &transmitResponse);
-
-#ifdef ENABLE_SESSION_TIMEOUT
-     LOGD_OMAPI("Set the timer with timeout " << SESSION_TIMEOUT_30S << " ms");
-     sessionTimer.start(SESSION_TIMEOUT_30S, this);
-#endif
 
     LOGD_OMAPI("STATUS OF TRNSMIT: " << res.getExceptionCode() << " Message: "
               << res.getMessage());
@@ -353,6 +279,18 @@ bool OmapiTransport::internalProtectedTransmitApdu(
         LOG(ERROR) << "transmit error: " << res.getMessage();
         return false;
     }
+
+#ifdef ENABLE_SESSION_TIMEOUT
+    long timeout = SESSION_TIMEOUT_30S;
+    LOG(DEBUG) << "Start timeout before closing channels ";
+    if ( (transmitResponse.size() ==  2 + 4 + 1) && (transmitResponse.at(0) == 0x7F || transmitResponse.at(0) == 0x76) ) { // 2 + 4 + 1 = TAG_CODE_SIZE + VALUE_SIZE + RES_STATUS_SIZE
+        timeout = 1000 * ((transmitResponse.at(1) << 24)
+                                   + (transmitResponse.at(2) << 16)
+                                   + (transmitResponse.at(3) << 8)
+                                   + transmitResponse.at(4));
+    }
+    sessionTimer.start(timeout, this);
+#endif
 
     return true;
 }

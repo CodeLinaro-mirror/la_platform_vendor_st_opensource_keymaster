@@ -118,9 +118,7 @@ private:
             "android.se.omapi.ISecureElementService/default";
 
     bool initialize();
-    bool internalTransmitApdu(
-            std::shared_ptr<aidl::android::se::omapi::ISecureElementReader> reader,
-            std::vector<uint8_t> apdu, std::vector<uint8_t>& transmitResponse);
+
     bool internalProtectedTransmitApdu(
             std::shared_ptr<aidl::android::se::omapi::ISecureElementReader> reader,
             std::vector<uint8_t> apdu, std::vector<uint8_t>& transmitResponse);
