@@ -16,7 +16,7 @@
  */
 /******************************************************************************
  **
- ** The original Work has been changed by NXP.
+ ** The original Work has been changed by THALES.
  **
  ** Licensed under the Apache License, Version 2.0 (the "License");
  ** you may not use this file except in compliance with the License.
@@ -30,36 +30,46 @@
  ** See the License for the specific language governing permissions and
  ** limitations under the License.
  **
- ** Copyright 2020-2022 NXP
+ ** Copyright ©2023-2024 THALES. All rights Reserved.
  **
  *********************************************************************************/
 
 #ifndef __SE_TRANSPORT_FACTORY__
 #define __SE_TRANSPORT_FACTORY__
 
+#ifndef OMAPI_TRANSPORT
 #include "HalToHalTransport.h"
+#else
 #include "OmapiTransport.h"
+#endif
+#include "SocketTransport.h"
 
 namespace se_transport {
 
-using keymint::javacard::HalToHalTransport;
 using keymint::javacard::ITransport;
+using keymint::javacard::SocketTransport;
 #ifdef OMAPI_TRANSPORT
 using keymint::javacard::OmapiTransport;
+#else
+using keymint::javacard::HalToHalTransport;
 #endif
 
 /**
- * TransportFactory class decides which transport mechanism to be used to send data to secure element.
- * The communication channel is via OMAPI.
+ * TransportFactory class decides which transport mechanism to be used to send data to secure element. In case of
+ * emulator the communication channel is socket and in case of device the communication channel is via OMAPI.
  */
 class TransportFactory {
     public:
-    TransportFactory(const std::vector<uint8_t>& mAppletAID) {
+    TransportFactory(bool isEmulator, const std::vector<uint8_t>& mAppletAID) {
+        if (!isEmulator) {
 #ifdef OMAPI_TRANSPORT
             mTransport = std::unique_ptr<OmapiTransport>(new OmapiTransport(mAppletAID));
 #else
             mTransport = std::unique_ptr<HalToHalTransport>(new HalToHalTransport(mAppletAID));
 #endif
+        }
+        else
+            mTransport = std::unique_ptr<SocketTransport>(new SocketTransport(mAppletAID));
     }
 
     ~TransportFactory() {}
@@ -96,7 +106,7 @@ class TransportFactory {
 
     private:
     /**
-     * Holds the instance of OmapiTransport class
+     * Holds the instance of either OmapiTransport class or SocketTransport class.
      */
     std::unique_ptr<ITransport> mTransport;
 

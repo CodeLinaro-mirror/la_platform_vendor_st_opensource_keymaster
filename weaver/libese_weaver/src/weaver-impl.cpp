@@ -15,6 +15,25 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+  /******************************************************************************
+ **
+ ** The original Work has been changed by THALES.
+ **
+ ** Licensed under the Apache License, Version 2.0 (the "License");
+ ** you may not use this file except in compliance with the License.
+ ** You may obtain a copy of the License at
+ **
+ ** http://www.apache.org/licenses/LICENSE-2.0
+ **
+ ** Unless required by applicable law or agreed to in writing, software
+ ** distributed under the License is distributed on an "AS IS" BASIS,
+ ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ ** See the License for the specific language governing permissions and
+ ** limitations under the License.
+ **
+ ** Copyright ©2023-2024 THALES. All rights Reserved.
+ **
+ *********************************************************************************/
 
 #define LOG_TAG "weaver-impl"
 #include <weaver-impl.h>
@@ -91,10 +110,10 @@ Status_Weaver WeaverImpl::GetSlots(SlotInfo &slotInfo) {
   } else {
     LOG_E(TAG, "Failed to perform getSlot Request");
   }
-  if (!close()) {
+  /*if (!close()) {
     // Channel Close Failed
     LOG_E(TAG, "Failed to Close Channel");
-  }
+  }*/
   if (status == WEAVER_STATUS_OK) {
     status = mParser->ParseSlotInfo(resp, slotInfo);
     LOG_D(TAG, "Total Slots (%u) ", slotInfo.slots);
@@ -142,10 +161,10 @@ Status_Weaver WeaverImpl::Read(uint32_t slotId, const std::vector<uint8_t> &key,
       mTransport->Send(readCmd, resp)) {
     status = WEAVER_STATUS_OK;
   }
-  if (!close()) {
+  /*if (!close()) {
     // Channel Close Failed
     LOG_E(TAG, "Failed to Close Channel");
-  }
+  }*/
   if (status == WEAVER_STATUS_OK) {
     status = mParser->ParseReadInfo(resp, readRespInfo);
   } else {
@@ -181,10 +200,10 @@ Status_Weaver WeaverImpl::Write(uint32_t slotId,
       mTransport->Send(readCmd, resp)) {
     status = WEAVER_STATUS_OK;
   }
-  if (!close()) {
+  /*if (!close()) {
     LOG_E(TAG, "Failed to Close Channel");
     // Channel Close Failed
-  }
+  }*/
   if (status != WEAVER_STATUS_OK || (!mParser->isSuccess(resp))) {
     status = WEAVER_STATUS_FAILED;
   }

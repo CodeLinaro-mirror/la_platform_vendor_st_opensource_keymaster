@@ -1,20 +1,20 @@
- /*
+/*
+ **
+ ** Copyright 2020, The Android Open Source Project
+ **
  ** Licensed under the Apache License, Version 2.0 (the "License");
  ** you may not use this file except in compliance with the License.
  ** You may obtain a copy of the License at
  **
- ** http://www.apache.org/licenses/LICENSE-2.0
+ **     http://www.apache.org/licenses/LICENSE-2.0
  **
  ** Unless required by applicable law or agreed to in writing, software
  ** distributed under the License is distributed on an "AS IS" BASIS,
  ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  ** See the License for the specific language governing permissions and
  ** limitations under the License.
- **
- ** Copyright 2020-2021 NXP
- **
  */
-  /******************************************************************************
+/******************************************************************************
  **
  ** The original Work has been changed by THALES.
  **
@@ -33,31 +33,43 @@
  ** Copyright ©2023-2024 THALES. All rights Reserved.
  **
  *********************************************************************************/
-#ifndef __ESE_TRANSPORT_CONFIG__
-#define __ESE_TRANSPORT_CONFIG__
+#pragma once
+#include "ITransport.h"
+#include <memory>
 #include <vector>
 
 namespace keymint::javacard {
+using std::shared_ptr;
+using std::vector;
 
-#define MAX_GET_SERVICE_RETRY 10
-#define ONE_SEC  1000*1000*1
-#define LOGICAL_CH_NOT_SUPPORTED_SW1 0x68
-#define LOGICAL_CH_NOT_SUPPORTED_SW2 0x81
-#define APDU_INS_OFFSET 1      // INS offset in command APDU
-#define SELECT_P2_VALUE_0 0    // Select command P2 value 0
-#define SELECT_P2_VALUE_2 2    // Select command P2 value 2
-#define MAX_RETRY_COUNT 3      // Number of retry in case of failure
+class SocketTransport : public ITransport {
 
-// Helper method to dump vector contents
-static bool debug_omapi = true;
-#define LOGD_OMAPI(x) \
-  if(debug_omapi) { \
-    LOG(INFO) <<"("<<__FUNCTION__ <<")"<<" "<<x; \
-  }
+  public:
+    SocketTransport(const std::vector<uint8_t>& mAppletAID) :
+        ITransport(mAppletAID),
+        mSocket(-1), socketStatus(false) {}
+    /**
+     * Creates a socket instance and connects to the provided server IP and port.
+     */
+    bool openConnection() override;
+    /**
+     * Sends data over socket and receives data back.
+     */
+    bool sendData(const vector<uint8_t>& inData, vector<uint8_t>& output) override;
+    /**
+     * Closes the connection.
+     */
+    bool closeConnection() override;
+    /**
+     * Returns the state of the connection status. Returns true if the connection is active,
+     * false if connection is broken.
+     */
+    bool isConnected() override;
 
-#define LOGE_OMAPI(x) \
-    LOG(INFO) <<"("<<__FUNCTION__ <<")"<<" "<<x;
-std::ostream& operator<<(std::ostream& os, const std::vector<uint8_t>& vec);
+  private:
+    bool readData(vector<uint8_t>& output);
+    int mSocket;
+    bool socketStatus;
+};
+}  // namespace keymint::javacard
 
-} // namespace keymint::javacard
-#endif /* __ESE_TRANSPORT_CONFIG__ */

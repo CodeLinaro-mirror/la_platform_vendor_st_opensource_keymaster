@@ -16,7 +16,7 @@
  */
 /******************************************************************************
  **
- ** The original Work has been changed by NXP.
+ ** The original Work has been changed by THALES.
  **
  ** Licensed under the Apache License, Version 2.0 (the "License");
  ** you may not use this file except in compliance with the License.
@@ -30,9 +30,10 @@
  ** See the License for the specific language governing permissions and
  ** limitations under the License.
  **
- ** Copyright 2020-2021 NXP
+ ** Copyright ©2023-2024 THALES. All rights Reserved.
  **
  *********************************************************************************/
+#ifndef OMAPI_TRANSPORT
 #define LOG_TAG "HalToHalTransport"
 
 #include <vector>
@@ -43,15 +44,18 @@
 
 #include <HalToHalTransport.h>
 #include <EseTransportUtils.h>
-#include <IntervalTimer.h>
+#include "SessionTimer.h"
+
+
+void* Timer::transport_ptr_a = nullptr;
+
 
 namespace keymint::javacard {
-void SessionTimerFunc(union sigval arg){
-     LOG(INFO) << "Session Timer expired !!";
-     HalToHalTransport *obj = (HalToHalTransport*)arg.sival_ptr;
-     if(obj != nullptr)
-       obj->closeConnection();
-}
+
+#ifdef ENABLE_SESSION_TIMEOUT
+Timer sessionTimer_a;
+#endif
+
 bool HalToHalTransport::openConnection() {
 	  return mAppletConnection.connectToSEService();
 }
@@ -59,9 +63,9 @@ bool HalToHalTransport::openConnection() {
 bool HalToHalTransport::sendData(const vector<uint8_t>& inData, vector<uint8_t>& output) {
     bool status = false;
     std::vector<uint8_t> cApdu(inData);
-#ifdef INTERVAL_TIMER
-     LOGD_OMAPI("stop the timer");
-     mTimer.kill();
+#ifdef ENBALE_SESSION_TIMEOUT
+    LOGD_OMAPI("Stop timeout if any.");
+    sessionTimer_a.stop();
 #endif
      if (!isConnected()) {
          std::vector<uint8_t> selectResponse;
@@ -79,14 +83,9 @@ bool HalToHalTransport::sendData(const vector<uint8_t>& inData, vector<uint8_t>&
         LOGD_OMAPI("transmit failed ,close the channel");
         return mAppletConnection.close();
     }
-#ifdef INTERVAL_TIMER
-     int timeout = mAppletConnection.getSessionTimeout();
-     if(timeout == 0) {
-       closeConnection(); //close immediately
-     } else {
-       LOGD_OMAPI("Set the timer with timeout " << timeout << " ms");
-       mTimer.set(mAppletConnection.getSessionTimeout(), this, SessionTimerFunc);
-     }
+#ifdef ENABLE_SESSION_TIMEOUT
+     LOGD_OMAPI("Set the timer with timeout " << SESSION_TIMEOUT_3S << " ms");
+     sessionTimer_a.start(SESSION_TIMEOUT_3S, this);
 #endif
     return status;
 }
@@ -99,3 +98,4 @@ bool HalToHalTransport::isConnected() {
     return mAppletConnection.isChannelOpen();
 }
 } // namespace keymint::javacard
+#endif
