@@ -16,7 +16,7 @@
  */
 /******************************************************************************
  **
- ** The original Work has been changed by NXP.
+ ** The original Work has been changed by THALES.
  **
  ** Licensed under the Apache License, Version 2.0 (the "License");
  ** you may not use this file except in compliance with the License.
@@ -30,13 +30,13 @@
  ** See the License for the specific language governing permissions and
  ** limitations under the License.
  **
- ** Copyright 2020-2021 NXP
+ ** Copyright ©2023-2024 THALES. All rights Reserved.
  **
  *********************************************************************************/
+#ifndef OMAPI_TRANSPORT
 #pragma once
 #include "ITransport.h"
 #include <AppletConnection.h>
-#include <IntervalTimer.h>
 #include <memory>
 #include <vector>
 
@@ -74,7 +74,6 @@ public:
     bool isConnected() override;
 private:
     AppletConnection mAppletConnection;
-    IntervalTimer mTimer;
-
 };
 }  // namespace keymint::javacard
+#endif

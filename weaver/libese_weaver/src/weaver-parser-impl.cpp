@@ -15,6 +15,25 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+ /******************************************************************************
+ **
+ ** The original Work has been changed by THALES.
+ **
+ ** Licensed under the Apache License, Version 2.0 (the "License");
+ ** you may not use this file except in compliance with the License.
+ ** You may obtain a copy of the License at
+ **
+ ** http://www.apache.org/licenses/LICENSE-2.0
+ **
+ ** Unless required by applicable law or agreed to in writing, software
+ ** distributed under the License is distributed on an "AS IS" BASIS,
+ ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ ** See the License for the specific language governing permissions and
+ ** limitations under the License.
+ **
+ ** Copyright ©2023-2024 THALES. All rights Reserved.
+ **
+ *********************************************************************************/
 
 #define LOG_TAG "weaver-parser-impl"
 #include <weaver_parser-impl.h>
@@ -48,6 +67,7 @@ std::once_flag WeaverParserImpl::s_instanceFlag;
 #define KEY_SIZE 16
 #define VALUE_SIZE 16
 #define RES_STATUS_SIZE 2
+#define THROTTING_VALUE_SIZE 4
 
 /* For Applet Read Response TAG */
 #define INCORRECT_KEY_TAG 0x7F
@@ -65,8 +85,7 @@ std::once_flag WeaverParserImpl::s_instanceFlag;
 #define BYTE1_MSB_POS 24
 
 /* Applet ID to be used for Weaver */
-const std::vector<uint8_t> kWeaverAID = {0xA0, 0x00, 0x00, 0x08, 0x44, 0x53, 0xF1, 0x27, 0x56,
-                                         0x18, 0x01, 0x00};
+const std::vector<uint8_t> kWeaverAID = {0xA0, 0x00, 0x00, 0x08, 0x44, 0x53, 0xF1, 0x27, 0x56, 0x18, 0x01, 0x00};
 
 /**
  * \brief static function to get the singleton instance of WeaverParserImpl
@@ -245,11 +264,29 @@ Status_Weaver WeaverParserImpl::ParseReadInfo(std::vector<uint8_t> response,
     case INCORRECT_KEY_TAG:
       LOG_E(TAG, "INCORRECT_KEY");
       status = WEAVER_STATUS_INCORRECT_KEY;
+      if ((THROTTING_VALUE_SIZE + READ_ERR_CODE_SIZE + RES_STATUS_SIZE) ==
+          response.size()) {
+        readInfo.timeout = 1000 * ((response.at(READ_ERR_CODE_INDEX + 1) << 24)
+                                   + (response.at(READ_ERR_CODE_INDEX + 2) << 16)
+                                   + (response.at(READ_ERR_CODE_INDEX + 3) << 8)
+                                   + response.at(READ_ERR_CODE_INDEX + 4));
+      } else {
+        LOG_E(TAG, "Invalid Response: Cannot get back off time");
+      }
       readInfo.value.resize(0);
       break;
     case THROTTING_ENABLED_TAG:
       LOG_E(TAG, "THROTTING_ENABLED");
       status = WEAVER_STATUS_THROTTLE;
+      if ((THROTTING_VALUE_SIZE + READ_ERR_CODE_SIZE + RES_STATUS_SIZE) ==
+          response.size()) {
+        readInfo.timeout = 1000 * ((response.at(READ_ERR_CODE_INDEX + 1) << 24)
+                                   + (response.at(READ_ERR_CODE_INDEX + 2) << 16)
+                                   + (response.at(READ_ERR_CODE_INDEX + 3) << 8)
+                                   + response.at(READ_ERR_CODE_INDEX + 4));
+      } else {
+        LOG_E(TAG, "Invalid Response: Cannot get back off time");
+      }
       readInfo.value.resize(0);
       break;
     case READ_SUCCESS_TAG:
