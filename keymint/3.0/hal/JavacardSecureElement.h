@@ -76,10 +76,13 @@ enum class Instruction {
     INS_SEND_ROT_DATA_CMD = KEYMINT_CMD_APDU_START + 47,
 };
 
+extern bool initialized;
+
 class JavacardSecureElement {
   public:
     explicit JavacardSecureElement(shared_ptr<ITransport> transport)
         : transport_(transport), isEarlyBootEndedPending(false), isDeleteAllKeysPending(false) {
+        initialized = false;
         transport_->openConnection();
     }
     virtual ~JavacardSecureElement() { transport_->closeConnection(); }
