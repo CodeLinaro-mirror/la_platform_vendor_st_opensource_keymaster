@@ -1,8 +1,10 @@
 # Build Keymaster open source vendor modules
 ESE_ST_VENDOR_KEYMINT += android.hardware.security.keymint-service.strongbox-thales
+ESE_ST_VENDOR_KEYMINT += android.hardware.authsecret-service.thales-qti
 
 ifeq ($(strip $(ENABLE_ESE_ST_KEYMINT_SPLIT_MANIFEST)),true)
 ESE_ST_VENDOR_KEYMINT += android.hardware.security.keymint-service.strongbox-thales.xml
+ESE_ST_VENDOR_KEYMINT += android.hardware.authsecret-service.xml
 ESE_ST_VENDOR_KEYMINT += android.hardware.security.sharedsecret-service.strongbox-thales.xml
 endif
 
