@@ -180,7 +180,12 @@ bool OmapiTransport::sendData(const vector<uint8_t>& inData, vector<uint8_t>& ou
 
     if (eSEReader != nullptr) {
         LOG(DEBUG) << "Sending apdu data to secure element: " << ESE_READER_PREFIX;
-        return internalProtectedTransmitApdu(eSEReader, apdu, output);
+        if (!internalProtectedTransmitApdu(eSEReader, apdu, output))
+        {
+            closeConnection();
+            return false;
+        } else
+            return true;
     } else {
         LOG(ERROR) << "secure element reader " << ESE_READER_PREFIX << " not found";
         return false;
@@ -201,6 +206,8 @@ bool OmapiTransport::closeConnection() {
     }
     omapiSeService = nullptr;
     eSEReader = nullptr;
+    channel = nullptr;
+    session = nullptr;
     return true;
 }
 
