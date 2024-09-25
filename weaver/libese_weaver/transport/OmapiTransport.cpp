@@ -158,6 +158,7 @@ bool OmapiTransport::openConnection() {
 }
 
 bool OmapiTransport::sendData(const vector<uint8_t>& inData, vector<uint8_t>& output) {
+    std::lock_guard<std::mutex> lock(connectionMutex);
     std::vector<uint8_t> apdu(inData);
 #ifdef ENABLE_SESSION_TIMEOUT
      LOGD_OMAPI("stop the timer");
@@ -193,6 +194,7 @@ bool OmapiTransport::sendData(const vector<uint8_t>& inData, vector<uint8_t>& ou
 }
 
 bool OmapiTransport::closeConnection() {
+    std::lock_guard<std::mutex> lock(connectionMutex);
     LOG(DEBUG) << "Closing all connections";
     if (channel != nullptr) channel->close();
     if (session != nullptr) session->close();

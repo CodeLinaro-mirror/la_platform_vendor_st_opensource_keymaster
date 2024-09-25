@@ -69,6 +69,7 @@
 #include <AppletConnection.h>
 #include <memory>
 #include <vector>
+#include <mutex>
 
 namespace keymint::javacard {
 using std::shared_ptr;
@@ -123,5 +124,6 @@ private:
             std::shared_ptr<aidl::android::se::omapi::ISecureElementReader> reader,
             std::vector<uint8_t> apdu, std::vector<uint8_t>& transmitResponse);
     void prepareErrorRepsponse(std::vector<uint8_t>& resp);
+    std::mutex connectionMutex;
 };
 }  // namespace keymint::javacard
