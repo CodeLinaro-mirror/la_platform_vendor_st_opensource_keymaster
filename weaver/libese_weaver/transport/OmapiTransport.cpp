@@ -70,6 +70,8 @@
 #include "SessionTimer.h"
 
 #define UNUSED_V(a) a=a
+#define MAX_INIT_COUNT 3
+#define INIT_RETRY_DELAY 500 //ms
 
 #ifdef OMAPI_TRANSPORT
 void* Timer::transport_ptr = nullptr;
@@ -83,67 +85,89 @@ class SEListener : public ::aidl::android::se::omapi::BnSecureElementListener {}
 Timer sessionTimer;
 #endif
 
+static uint8_t initCounter = 0;
+
 bool OmapiTransport::initialize() {
     std::vector<std::string> readers = {};
 
     LOG(DEBUG) << "Initialize the secure element connection";
-
-    // Get OMAPI vendor stable service handler
-    ::ndk::SpAIBinder ks2Binder(AServiceManager_checkService(omapiServiceName));
-    omapiSeService = aidl::android::se::omapi::ISecureElementService::fromBinder(ks2Binder);
-
-    if (omapiSeService == nullptr) {
-        LOG(ERROR) << "Failed to start omapiSeService null";
-        return false;
-    }
-
-    // reset readers, clear readers if already existing
-    if (mVSReaders.size() > 0) {
+    initCounter = 0;
+    do {
+        LOG(DEBUG) << "Close all existing connection if any";
         closeConnection();
-    }
+        readers.clear();
 
-    // Get available readers
-    auto status = omapiSeService->getReaders(&readers);
-    if (!status.isOk()) {
-        LOG(ERROR) << "getReaders failed to get available readers: " << status.getMessage();
-        return false;
-    }
+        // Get OMAPI vendor stable service handler
+        ::ndk::SpAIBinder ks2Binder(AServiceManager_checkService(omapiServiceName));
+        omapiSeService = aidl::android::se::omapi::ISecureElementService::fromBinder(ks2Binder);
 
-    // Get SE readers handlers
-    for (auto readerName : readers) {
-        std::shared_ptr<::aidl::android::se::omapi::ISecureElementReader> reader;
-        status = omapiSeService->getReader(readerName, &reader);
-        if (!status.isOk()) {
-            LOG(ERROR) << "getReader for " << readerName.c_str() << " Failed: "
-                       << status.getMessage();
+        if (omapiSeService == nullptr) {
+            LOG(ERROR) << "Failed to start omapiSeService null";
+            if(initCounter < MAX_INIT_COUNT) {
+                initCounter++;
+                usleep(INIT_RETRY_DELAY * 1000);
+                continue;
+            }
             return false;
         }
 
-        mVSReaders[readerName] = reader;
-    }
+        // Get available readers
+        auto status = omapiSeService->getReaders(&readers);
+        if (!status.isOk()) {
+            LOG(ERROR) << "getReaders failed to get available readers: " << status.getMessage();
+            if(initCounter < MAX_INIT_COUNT) {
+                initCounter++;
+                usleep(INIT_RETRY_DELAY * 1000);
+                continue;
+            }
+            return false;
+        }
 
-    // Find eSE reader, as of now assumption is only eSE available on device
-    LOG(DEBUG) << "Finding eSE reader";
-    eSEReader = nullptr;
-    if (mVSReaders.size() > 0) {
-        for (const auto& [name, reader] : mVSReaders) {
-            if (name.find(ESE_READER_PREFIX, 0) != std::string::npos) {
-                LOG(DEBUG) << "eSE reader found: " << name;
-                eSEReader = reader;
-                std::string prefTerminalName = "eSE1";
-                if (name.compare(prefTerminalName) == 0x00 ) {
-                    LOG(DEBUG) << "Found reader "<< prefTerminalName << " breaking.";
-                    break;
+        // Get SE readers handlers
+        for (auto readerName : readers) {
+            std::shared_ptr<::aidl::android::se::omapi::ISecureElementReader> reader;
+            status = omapiSeService->getReader(readerName, &reader);
+            if (!status.isOk()) {
+                LOG(ERROR) << "getReader for " << readerName.c_str() << " Failed: "
+                           << status.getMessage();
+                    if(initCounter < MAX_INIT_COUNT) {
+                        initCounter++;
+                        usleep(INIT_RETRY_DELAY * 1000);
+                        continue;
+                    }
+                return false;
+            }
+            mVSReaders[readerName] = reader;
+        }
+
+        // Find eSE reader, as of now assumption is only eSE available on device
+        LOG(DEBUG) << "Finding eSE reader";
+        eSEReader = nullptr;
+        if (mVSReaders.size() > 0) {
+            for (const auto& [name, reader] : mVSReaders) {
+                if (name.find(ESE_READER_PREFIX, 0) != std::string::npos) {
+                    LOG(DEBUG) << "eSE reader found: " << name;
+                    eSEReader = reader;
+                    std::string prefTerminalName = "eSE1";
+                    if (name.compare(prefTerminalName) == 0x00 ) {
+                        LOG(DEBUG) << "Found reader "<< prefTerminalName << " breaking.";
+                        break;
+                    }
                 }
             }
         }
-    }
 
-    if (eSEReader == nullptr) {
-        LOG(ERROR) << "secure element reader " << ESE_READER_PREFIX << " not found";
-        return false;
-    }
-
+        if (eSEReader == nullptr) {
+            LOG(ERROR) << "secure element reader " << ESE_READER_PREFIX << " not found";
+            if(initCounter < MAX_INIT_COUNT) {
+                initCounter++;
+                usleep(INIT_RETRY_DELAY * 1000);
+                continue;
+            }
+            return false;
+        }
+        initCounter = 0;
+    } while (initCounter > 0 && initCounter < MAX_INIT_COUNT+1);
     return true;
 }
 
@@ -158,7 +182,7 @@ bool OmapiTransport::openConnection() {
 }
 
 bool OmapiTransport::sendData(const vector<uint8_t>& inData, vector<uint8_t>& output) {
-    std::lock_guard<std::mutex> lock(connectionMutex);
+
     std::vector<uint8_t> apdu(inData);
 #ifdef ENABLE_SESSION_TIMEOUT
      LOGD_OMAPI("stop the timer");
@@ -198,13 +222,11 @@ bool OmapiTransport::closeConnection() {
     LOG(DEBUG) << "Closing all connections";
     if (channel != nullptr) channel->close();
     if (session != nullptr) session->close();
-    if (omapiSeService != nullptr) {
-        if (mVSReaders.size() > 0) {
-            for (const auto& [name, reader] : mVSReaders) {
-                reader->closeSessions();
-            }
-            mVSReaders.clear();
+    if (mVSReaders.size() > 0) {
+        for (const auto& [name, reader] : mVSReaders) {
+            reader->closeSessions();
         }
+        mVSReaders.clear();
     }
     omapiSeService = nullptr;
     eSEReader = nullptr;
@@ -228,6 +250,7 @@ bool OmapiTransport::internalProtectedTransmitApdu(
         std::shared_ptr<aidl::android::se::omapi::ISecureElementReader> reader,
         std::vector<uint8_t> apdu, std::vector<uint8_t>& transmitResponse) {
     //auto mSEListener = std::make_shared<SEListener>();
+    std::lock_guard<std::mutex> lock(connectionMutex);
     auto mSEListener = ndk::SharedRefBase::make<SEListener>();
     std::vector<uint8_t> selectResponse = {};
 
