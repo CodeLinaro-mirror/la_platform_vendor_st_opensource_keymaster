@@ -70,8 +70,9 @@
 #include "SessionTimer.h"
 
 #define UNUSED_V(a) a=a
-#define MAX_INIT_COUNT 3
-#define INIT_RETRY_DELAY 500 //ms
+#define MAX_INIT_COUNT 15
+#define MAX_SEND_COUNT 5
+#define INIT_RETRY_DELAY 1000 //ms
 
 #ifdef OMAPI_TRANSPORT
 void* Timer::transport_ptr = nullptr;
@@ -184,37 +185,50 @@ bool OmapiTransport::openConnection() {
 bool OmapiTransport::sendData(const vector<uint8_t>& inData, vector<uint8_t>& output) {
 
     std::vector<uint8_t> apdu(inData);
+    uint8_t sendCounter = 0;
 #ifdef ENABLE_SESSION_TIMEOUT
      LOGD_OMAPI("stop the timer");
      sessionTimer.stop();
 #endif
-    if (!isConnected()) {
-        // Try to initialize connection to eSE
-        LOG(INFO) << "Failed to send data, try to initialize connection SE connection";
-        if (!initialize()) {
-            LOG(ERROR) << "Failed to send data, initialization not completed";
-            closeConnection();
+    do {
+        if (!isConnected()) {
+            // Try to initialize connection to eSE
+            LOG(INFO) << "Failed to send data, try to initialize connection SE connection";
+            if (!initialize()) {
+                LOG(ERROR) << "Failed to send data, initialization not completed";
+                closeConnection();
+                return false;
+            }
+        }
+
+        if (inData.size() == 0x00) {
+            LOG(ERROR) << "Failed to send data, APDU is null";
             return false;
         }
-    }
 
-    if (inData.size() == 0x00) {
-        LOG(ERROR) << "Failed to send data, APDU is null";
-        return false;
-    }
-
-    if (eSEReader != nullptr) {
-        LOG(DEBUG) << "Sending apdu data to secure element: " << ESE_READER_PREFIX;
-        if (!internalProtectedTransmitApdu(eSEReader, apdu, output))
-        {
+        if (eSEReader != nullptr) {
+            LOG(DEBUG) << "Sending apdu data to secure element: " << ESE_READER_PREFIX;
+            if (!internalProtectedTransmitApdu(eSEReader, apdu, output))
+            {
+                closeConnection();
+                if(sendCounter < MAX_SEND_COUNT) {
+                    sendCounter++;
+                    continue;
+                }
+                return false;
+            } else
+                return true;
+        } else {
+            LOG(ERROR) << "secure element reader " << ESE_READER_PREFIX << " not found";
             closeConnection();
+            if(sendCounter < MAX_SEND_COUNT) {
+                sendCounter++;
+                continue;
+            }
             return false;
-        } else
-            return true;
-    } else {
-        LOG(ERROR) << "secure element reader " << ESE_READER_PREFIX << " not found";
-        return false;
-    }
+        }
+    } while (sendCounter > 0 && sendCounter < MAX_SEND_COUNT+1);
+    return false;
 }
 
 bool OmapiTransport::closeConnection() {
@@ -237,6 +251,7 @@ bool OmapiTransport::closeConnection() {
 
 bool OmapiTransport::isConnected() {
     // Check already initialization completed or not
+    std::lock_guard<std::mutex> lock(connectionMutex);
     if (omapiSeService != nullptr && eSEReader != nullptr) {
         LOG(DEBUG) << "Connection initialization already completed";
         return true;
@@ -249,7 +264,7 @@ bool OmapiTransport::isConnected() {
 bool OmapiTransport::internalProtectedTransmitApdu(
         std::shared_ptr<aidl::android::se::omapi::ISecureElementReader> reader,
         std::vector<uint8_t> apdu, std::vector<uint8_t>& transmitResponse) {
-    //auto mSEListener = std::make_shared<SEListener>();
+
     std::lock_guard<std::mutex> lock(connectionMutex);
     auto mSEListener = ndk::SharedRefBase::make<SEListener>();
     std::vector<uint8_t> selectResponse = {};
