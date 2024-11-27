@@ -43,6 +43,7 @@ public:
 
     // Start the timer with the specified timeout and call closeChannel if timeout is reached
     void start(int timeout_ms, void* ptr) {
+        int final_timeout = 0;
         if (!is_running) {
             is_running = true;
 #ifdef OMAPI_TRANSPORT
@@ -56,7 +57,11 @@ public:
                 return;
             }
             
-            if (alarm(timeout_ms / 1000) != 0) {
+            if (timeout_ms >= remaining) final_timeout = timeout_ms;
+            else final_timeout = remaining;
+
+            LOG(DEBUG) << "Start with final_timeout: " << final_timeout;
+            if (alarm(final_timeout / 1000) != 0) {
                 LOG(ERROR) << "Error setting the alarm. " << std::endl;
                 return;
             }
@@ -67,12 +72,14 @@ public:
     void stop() {
         if (is_running) {
             is_running = false;
-            alarm(0);
+            remaining = alarm(0) * 1000;
+            LOG(DEBUG) << "Stop remaining time: " << remaining;
         }
     }
 
 private:
     std::atomic<bool> is_running;
+    int remaining = 0;
 #ifdef OMAPI_TRANSPORT
     static void* transport_ptr;
 #else
