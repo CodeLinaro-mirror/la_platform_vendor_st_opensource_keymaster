@@ -60,6 +60,7 @@
 #include <string.h>
 #include <vector>
 #include <iomanip>
+#include <future>
 
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
@@ -232,120 +233,129 @@ bool OmapiTransport::sendData(const vector<uint8_t>& inData, vector<uint8_t>& ou
 }
 
 bool OmapiTransport::closeConnection() {
-    std::lock_guard<std::mutex> lock(connectionMutex);
-    LOG(DEBUG) << "Closing all connections";
-    if (channel != nullptr) channel->close();
-    if (session != nullptr) session->close();
-    if (mVSReaders.size() > 0) {
-        for (const auto& [name, reader] : mVSReaders) {
-            reader->closeSessions();
+    std::future<bool> result = std::async(std::launch::async, [this]() {
+        std::lock_guard<std::mutex> lock(connectionMutex);
+        LOG(DEBUG) << "Closing all connections";
+        if (channel != nullptr) channel->close();
+        if (session != nullptr) session->close();
+        if (mVSReaders.size() > 0) {
+            for (const auto& [name, reader] : mVSReaders) {
+                reader->closeSessions();
+            }
+            mVSReaders.clear();
         }
-        mVSReaders.clear();
-    }
-    omapiSeService = nullptr;
-    eSEReader = nullptr;
-    channel = nullptr;
-    session = nullptr;
-    return true;
+        omapiSeService = nullptr;
+        eSEReader = nullptr;
+        channel = nullptr;
+        session = nullptr;
+        return true;
+    });
+    return result.get();
 }
 
 bool OmapiTransport::isConnected() {
     // Check already initialization completed or not
-    std::lock_guard<std::mutex> lock(connectionMutex);
-    if (omapiSeService != nullptr && eSEReader != nullptr) {
-        LOG(DEBUG) << "Connection initialization already completed";
-        return true;
-    }
+    std::future<bool> result = std::async(std::launch::async, [this]() {
+        std::lock_guard<std::mutex> lock(connectionMutex);
+        if (omapiSeService != nullptr && eSEReader != nullptr) {
+            LOG(DEBUG) << "Connection initialization already completed";
+            return true;
+        }
 
-    LOG(DEBUG) << "Connection initialization not completed";
-    return false;
+        LOG(DEBUG) << "Connection initialization not completed";
+        return false;
+    });
+    return result.get();
 }
 
 bool OmapiTransport::internalProtectedTransmitApdu(
         std::shared_ptr<aidl::android::se::omapi::ISecureElementReader> reader,
         std::vector<uint8_t> apdu, std::vector<uint8_t>& transmitResponse) {
 
-    std::lock_guard<std::mutex> lock(connectionMutex);
-    auto mSEListener = ndk::SharedRefBase::make<SEListener>();
-    std::vector<uint8_t> selectResponse = {};
+    std::future<bool> result = std::async(std::launch::async, [this, reader, apdu, &transmitResponse]() {
+        std::lock_guard<std::mutex> lock(connectionMutex);
+        auto mSEListener = ndk::SharedRefBase::make<SEListener>();
+        std::vector<uint8_t> selectResponse = {};
 
-    if (reader == nullptr) {
-        LOG(ERROR) << "eSE reader is null";
-        return false;
-    }
+        if (reader == nullptr) {
+            LOG(ERROR) << "eSE reader is null";
+            return false;
+        }
 
-    bool status = false;
-    auto res = reader->isSecureElementPresent(&status);
-    if (!res.isOk()) {
-        LOG(ERROR) << "isSecureElementPresent error: " << res.getMessage();
-        return false;
-    }
-    if (!status) {
-        LOG(ERROR) << "secure element not found";
-        return false;
-    }
-
-    if (session == nullptr || ((session->isClosed(&status).isOk() && status))) {
-        res = reader->openSession(&session);
+        bool status = false;
+        auto res = reader->isSecureElementPresent(&status);
         if (!res.isOk()) {
-            LOG(ERROR) << "openSession error: " << res.getMessage();
+            LOG(ERROR) << "isSecureElementPresent error: " << res.getMessage();
             return false;
         }
-        if (session == nullptr) {
-            LOG(ERROR) << "Could not open session null";
+        if (!status) {
+            LOG(ERROR) << "secure element not found";
             return false;
         }
-    }
 
-    if ((channel == nullptr || (channel->isClosed(&status).isOk() && status))) {
-        res = session->openLogicalChannel(mSelectableAid, 0x00, mSEListener, &channel);
+        if (session == nullptr || ((session->isClosed(&status).isOk() && status))) {
+            res = reader->openSession(&session);
+            if (!res.isOk()) {
+                LOG(ERROR) << "openSession error: " << res.getMessage();
+                return false;
+            }
+            if (session == nullptr) {
+                LOG(ERROR) << "Could not open session null";
+                return false;
+            }
+        }
+
+        if ((channel == nullptr || (channel->isClosed(&status).isOk() && status))) {
+            res = session->openLogicalChannel(mSelectableAid, 0x00, mSEListener, &channel);
+            if (!res.isOk()) {
+                LOG(ERROR) << "openLogicalChannel error: " << res.getMessage();
+                return false;
+            }
+            if (channel == nullptr) {
+                LOG(ERROR) << "Could not open channel null";
+                return false;
+            }
+
+            res = channel->getSelectResponse(&selectResponse);
+            if (!res.isOk()) {
+                LOG(ERROR) << "getSelectResponse error: " << res.getMessage();
+                return false;
+            }
+            if ((selectResponse.size() < 2)
+                || ((selectResponse[selectResponse.size() -1] & 0xFF) != 0x00)
+                || ((selectResponse[selectResponse.size() -2] & 0xFF) != 0x90))
+            {
+                LOG(ERROR) << "Failed to select the Applet.";
+                return false;
+            }
+        }
+
+        res = channel->transmit(apdu, &transmitResponse);
+
+        LOGD_OMAPI("STATUS OF TRNSMIT: " << res.getExceptionCode() << " Message: "
+                  << res.getMessage());
         if (!res.isOk()) {
-            LOG(ERROR) << "openLogicalChannel error: " << res.getMessage();
+            LOG(ERROR) << "transmit error: " << res.getMessage();
             return false;
         }
-        if (channel == nullptr) {
-            LOG(ERROR) << "Could not open channel null";
-            return false;
-        }
-
-        res = channel->getSelectResponse(&selectResponse);
-        if (!res.isOk()) {
-            LOG(ERROR) << "getSelectResponse error: " << res.getMessage();
-            return false;
-        }
-        if ((selectResponse.size() < 2)
-            || ((selectResponse[selectResponse.size() -1] & 0xFF) != 0x00)
-            || ((selectResponse[selectResponse.size() -2] & 0xFF) != 0x90))
-        {
-            LOG(ERROR) << "Failed to select the Applet.";
-            return false;
-        }
-    }
-
-    res = channel->transmit(apdu, &transmitResponse);
-
-    LOGD_OMAPI("STATUS OF TRNSMIT: " << res.getExceptionCode() << " Message: "
-              << res.getMessage());
-    if (!res.isOk()) {
-        LOG(ERROR) << "transmit error: " << res.getMessage();
-        return false;
-    }
 
 #ifdef ENABLE_SESSION_TIMEOUT
-    long timeout = 1000; // As error
-    timeout += SESSION_TIMEOUT_3S;
-    LOGD_OMAPI("Start timeout before closing channels ");
-    if ( (transmitResponse.size() ==  2 + 4 + 1) && (transmitResponse.at(0) == 0x7F || transmitResponse.at(0) == 0x76) ) { // 2 + 4 + 1 = TAG_CODE_SIZE + VALUE_SIZE + RES_STATUS_SIZE
-        timeout += 1000 * ((transmitResponse.at(1) << 24)
-                                   + (transmitResponse.at(2) << 16)
-                                   + (transmitResponse.at(3) << 8)
-                                   + transmitResponse.at(4));
-    }
-    LOGD_OMAPI("timeout value " << timeout);
-    sessionTimer.start(timeout, this);
+        long timeout = 1000; // As error
+        timeout += SESSION_TIMEOUT_3S;
+        LOGD_OMAPI("Start timeout before closing channels ");
+        if ( (transmitResponse.size() ==  2 + 4 + 1) && (transmitResponse.at(0) == 0x7F || transmitResponse.at(0) == 0x76) ) { // 2 + 4 + 1 = TAG_CODE_SIZE + VALUE_SIZE + RES_STATUS_SIZE
+            timeout += 1000 * ((transmitResponse.at(1) << 24)
+                                       + (transmitResponse.at(2) << 16)
+                                       + (transmitResponse.at(3) << 8)
+                                       + transmitResponse.at(4));
+        }
+        LOGD_OMAPI("timeout value " << timeout);
+        sessionTimer.start(timeout, this);
 #endif
 
-    return true;
+        return true;
+    });
+    return result.get();
 }
 
 void OmapiTransport::prepareErrorRepsponse(std::vector<uint8_t>& resp){
