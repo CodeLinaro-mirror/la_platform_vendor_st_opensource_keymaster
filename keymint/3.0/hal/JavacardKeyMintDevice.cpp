@@ -459,4 +459,8 @@ ScopedAStatus JavacardKeyMintDevice::sendRootOfTrust(const vector<uint8_t>& root
     return ScopedAStatus::ok();
 }
 
+ScopedAStatus JavacardKeyMintDevice::setAdditionalAttestationInfo(const vector<KeyParameter>& /*info*/) {
+    return km_utils::kmError2ScopedAStatus(KM_ERROR_UNIMPLEMENTED);
+}
+
 }  // namespace aidl::android::hardware::security::keymint
