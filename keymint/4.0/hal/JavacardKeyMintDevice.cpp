@@ -574,6 +574,12 @@ ScopedAStatus JavacardKeyMintDevice::setAdditionalAttestationInfo(const vector<K
     // add key params
     cbor_.addKeyparameters(request, info);
     auto [item, err] = card_->sendRequest(Instruction::INS_SET_ATT_MODULE_INFO_CMD, request);
+    //WAR: override setAdditionalAttestationInfo failure to void bootup failure
+    if (err != KM_ERROR_OK) {
+        LOG(ERROR) << "Error in sending in setAdditionalAttestationInfo err: " << err;
+        err = KM_ERROR_OK;
+    }
+
     if (err != KM_ERROR_OK) {
         LOG(ERROR) << "Error in sending in setAdditionalAttestationInfo.";
         return km_utils::kmError2ScopedAStatus(err);
