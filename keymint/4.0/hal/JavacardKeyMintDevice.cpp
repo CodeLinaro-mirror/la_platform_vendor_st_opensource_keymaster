@@ -59,8 +59,8 @@ keymaster_error_t
 getCertificateChain(std::vector<uint8_t>& chainBuffer, std::vector<Certificate>& certChain);
 
 ScopedAStatus JavacardKeyMintDevice::defaultHwInfo(KeyMintHardwareInfo* info) {
-    info->versionNumber = 2;
-    info->keyMintAuthorName = "Google";
+    info->versionNumber = 1;
+    info->keyMintAuthorName = "Thales";
     info->keyMintName = "JavacardKeymintDevice";
     info->securityLevel = securitylevel_;
     info->timestampTokenRequired = true;
@@ -574,12 +574,6 @@ ScopedAStatus JavacardKeyMintDevice::setAdditionalAttestationInfo(const vector<K
     // add key params
     cbor_.addKeyparameters(request, info);
     auto [item, err] = card_->sendRequest(Instruction::INS_SET_ATT_MODULE_INFO_CMD, request);
-    //WAR: override setAdditionalAttestationInfo failure to void bootup failure
-    if (err != KM_ERROR_OK) {
-        LOG(ERROR) << "Error in sending in setAdditionalAttestationInfo err: " << err;
-        err = KM_ERROR_OK;
-    }
-
     if (err != KM_ERROR_OK) {
         LOG(ERROR) << "Error in sending in setAdditionalAttestationInfo.";
         return km_utils::kmError2ScopedAStatus(err);
