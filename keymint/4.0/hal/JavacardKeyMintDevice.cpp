@@ -97,6 +97,7 @@ ScopedAStatus JavacardKeyMintDevice::generateKey(const vector<KeyParameter>& key
                                                  KeyCreationResult* creationResult) {
     card_->sendPendingEvents();
     cppbor::Array array;
+
     // add key params
     cbor_.addKeyparameters(array, keyParams);
     // add attestation key if any
@@ -113,6 +114,7 @@ ScopedAStatus JavacardKeyMintDevice::generateKey(const vector<KeyParameter>& key
         LOG(ERROR) << "Error in decoding og response in generateKey.";
         return km_utils::kmError2ScopedAStatus(KM_ERROR_UNKNOWN_ERROR);
     }
+
     creationResult->keyCharacteristics = std::move(optKeyChars.value());
     creationResult->certificateChain = std::move(optCertChain.value());
     creationResult->keyBlob = std::move(optKeyBlob.value());
@@ -146,6 +148,7 @@ ScopedAStatus JavacardKeyMintDevice::importKey(const vector<KeyParameter>& keyPa
 
     card_->sendPendingEvents();
     cppbor::Array request;
+
     // add key params
     cbor_.addKeyparameters(request, keyParams);
     // add key format
@@ -167,6 +170,7 @@ ScopedAStatus JavacardKeyMintDevice::importKey(const vector<KeyParameter>& keyPa
         LOG(ERROR) << "Error in decoding response in importKey.";
         return km_utils::kmError2ScopedAStatus(KM_ERROR_UNKNOWN_ERROR);
     }
+
     creationResult->keyCharacteristics = std::move(optKeyChars.value());
     creationResult->certificateChain = std::move(optCertChain.value());
     creationResult->keyBlob = std::move(optKeyBlob.value());
@@ -201,12 +205,51 @@ ScopedAStatus JavacardKeyMintDevice::importWrappedKey(const vector<uint8_t>& wra
     vector<KeyParameter> authList;
     KeyFormat keyFormat;
     std::vector<uint8_t> wrappedKeyDescription;
+	int64_t authType = 0;
+	int64_t userSecureIdTargets = 0;
+	int64_t recoveruserSecureIdTargets;
     keymaster_error_t errorCode = parseWrappedKey(wrappedKeyData, iv, transitKey, secureKey, tag,
                                                   authList, keyFormat, wrappedKeyDescription);
     if (errorCode != KM_ERROR_OK) {
         LOG(ERROR) << "Error in parse wrapped key in importWrappedKey.";
         return km_utils::kmError2ScopedAStatus(errorCode);
     }
+
+/**
+         * Currently USER_SECURE_ID cannot be present, due to parseWrappedKey implementation.
+         * However, just leave it implemented for pedantic behavior in the future.
+         **/
+        if (auto it = std::find_if(authList.begin(), authList.end(),
+                                   [](const KeyParameter& param) -> bool {
+                                       return (param.tag == Tag::USER_SECURE_ID);
+                                   });
+            it != authList.end()) {
+            LOG(VERBOSE) << "Found user secure id entry. Substituting to provided secure ids.";
+            userSecureIdTargets = it->value.get<KeyParameterValue::Tag::longInteger>();
+            authList.erase(it);
+        } else if (auto it = std::find_if(authList.begin(), authList.end(),
+                                          [](const KeyParameter& param) -> bool {
+                                              return (param.tag == Tag::USER_AUTH_TYPE);
+                                          });
+                   it != authList.end()) {
+            LOG(VERBOSE) << "Found user secure id entry. Substituting to provided secure ids.";
+            userSecureIdTargets = static_cast<int64_t>(
+                it->value.get<KeyParameterValue::Tag::hardwareAuthenticatorType>());
+        }
+        if (userSecureIdTargets) {
+            if (userSecureIdTargets & static_cast<int32_t>(HardwareAuthenticatorType::PASSWORD)) {
+                LOG(VERBOSE) << "Appending passwordSid for importWrappedKey.";
+                authList.emplace_back(
+                    Tag::USER_SECURE_ID,
+                    KeyParameterValue::make<KeyParameterValue::Tag::longInteger>(passwordSid));
+            }
+            if (userSecureIdTargets & static_cast<int32_t>(HardwareAuthenticatorType::FINGERPRINT)) {
+                LOG(VERBOSE) << "Appending biometricSic for importWrappedKey.";
+                authList.emplace_back(
+                    Tag::USER_SECURE_ID,
+                    KeyParameterValue::make<KeyParameterValue::Tag::longInteger>(biometricSid));
+            }
+        }
 
     // begin import
     std::tie(item, errorCode) =
@@ -229,6 +272,7 @@ ScopedAStatus JavacardKeyMintDevice::importWrappedKey(const vector<uint8_t>& wra
         LOG(ERROR) << "Error in decoding the response in importWrappedKey.";
         return km_utils::kmError2ScopedAStatus(KM_ERROR_UNKNOWN_ERROR);
     }
+
     creationResult->keyCharacteristics = std::move(optKeyChars.value());
     creationResult->certificateChain = std::move(optCertChain.value());
     creationResult->keyBlob = std::move(optKeyBlob.value());
@@ -273,6 +317,8 @@ ScopedAStatus JavacardKeyMintDevice::upgradeKey(const vector<uint8_t>& keyBlobTo
     cppbor::Array request;
     // add key blob
     request.add(Bstr(keyBlobToUpgrade));
+
+
     // add key params
     cbor_.addKeyparameters(request, upgradeParams);
     auto [item, err] = card_->sendRequest(Instruction::INS_UPGRADE_KEY_CMD, request);
@@ -329,6 +375,8 @@ ScopedAStatus JavacardKeyMintDevice::begin(KeyPurpose purpose, const std::vector
     // make request
     array.add(Uint(static_cast<uint64_t>(purpose)));
     array.add(Bstr(keyBlob));
+
+
     cbor_.addKeyparameters(array, params);
     HardwareAuthToken token = authToken.value_or(HardwareAuthToken());
     cbor_.addHardwareAuthToken(array, token);
