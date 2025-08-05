@@ -78,7 +78,9 @@ std::shared_ptr<ITransport> getTransportInstance() {
     }
 }
 
-int main() {
+int main(int argc, char** argv) {
+    android::base::InitLogging(argv, android::base::LogdLogger(android::base::SYSTEM));
+
     ABinderProcess_setThreadPoolMaxThreadCount(0);
     // Javacard Secure Element
     std::shared_ptr<JavacardSecureElement> card =
