@@ -1,6 +1,7 @@
 #pineapple specific build rules
 ifeq ($(TARGET_BOARD_PLATFORM),pineapple)
 TARGET_USES_ESE_ST_KEYMINT := false
+TARGET_USES_ESE_ST_AUTHSECRET := false
 ENABLE_ESE_ST_KEYMINT_FEATURE_XML := false
 ENABLE_ESE_ST_KEYMINT_SPLIT_MANIFEST := false
 endif
@@ -8,13 +9,16 @@ endif
 #sun specific build rules
 ifeq ($(TARGET_BOARD_PLATFORM),sun)
 TARGET_USES_ESE_ST_KEYMINT := false
+TARGET_USES_ESE_ST_AUTHSECRET := false
 ENABLE_ESE_ST_KEYMINT_FEATURE_XML := false
 ENABLE_ESE_ST_KEYMINT_SPLIT_MANIFEST := false
 endif
 
-#canoe specific build rules
+#canoe and alor specific build rules.
+#enable for alor by default. alor uses same lunch command
 ifeq ($(TARGET_BOARD_PLATFORM),canoe)
-TARGET_USES_ESE_ST_KEYMINT := false
+TARGET_USES_ESE_ST_KEYMINT := true
+TARGET_USES_ESE_ST_AUTHSECRET := false
 ENABLE_ESE_ST_KEYMINT_FEATURE_XML := false
 ENABLE_ESE_ST_KEYMINT_SPLIT_MANIFEST := false
 endif
@@ -22,6 +26,7 @@ endif
 #vienna specific build rules
 ifeq ($(TARGET_BOARD_PLATFORM),vienna)
 TARGET_USES_ESE_ST_KEYMINT := false
+TARGET_USES_ESE_ST_AUTHSECRET := false
 ENABLE_ESE_ST_KEYMINT_FEATURE_XML := false
 ENABLE_ESE_ST_KEYMINT_SPLIT_MANIFEST := false
 endif
