@@ -39,6 +39,8 @@
 
 #define GOOGLE_API 0
 
+#define PROP_KEYMINT_TEST "persist.vendor.keymint.test"
+#define PROP_VENDOR_BUILD_TYPE "ro.vendor.build.type"
 
 namespace aidl::android::hardware::security::keymint {
 using cppbor::Bstr;
@@ -569,14 +571,29 @@ getCertificateChain(std::vector<uint8_t>& chainBuffer, std::vector<Certificate>&
     return KM_ERROR_OK;
 }
 
+static bool isErrorOverrideBlocked() {
+    constexpr char PROP_USER_BUILD[] = "user";
+    constexpr char PROP_ALLOW_TEST[] = "allow";
+
+    const std::string buildType = ::android::base::GetProperty(PROP_VENDOR_BUILD_TYPE, "");
+    const std::string keymintTest = ::android::base::GetProperty(PROP_KEYMINT_TEST, "");
+
+    return (buildType == PROP_USER_BUILD) || (keymintTest == PROP_ALLOW_TEST);
+}
+
 ScopedAStatus JavacardKeyMintDevice::setAdditionalAttestationInfo(const vector<KeyParameter>& info) {
     cppbor::Array request;
     // add key params
     cbor_.addKeyparameters(request, info);
     auto [item, err] = card_->sendRequest(Instruction::INS_SET_ATT_MODULE_INFO_CMD, request);
     if (err != KM_ERROR_OK) {
-        LOG(ERROR) << "Error in sending in setAdditionalAttestationInfo.";
-        return km_utils::kmError2ScopedAStatus(err);
+        if (isErrorOverrideBlocked()) {
+            LOG(ERROR) << "Error in sending in setAdditionalAttestationInfo.";
+            return km_utils::kmError2ScopedAStatus(err);
+        } else {
+            LOG(ERROR) << "Override Error in sending in setAdditionalAttestationInfo ";
+            return ScopedAStatus::ok();
+        }
     }
     return ScopedAStatus::ok();
 }
