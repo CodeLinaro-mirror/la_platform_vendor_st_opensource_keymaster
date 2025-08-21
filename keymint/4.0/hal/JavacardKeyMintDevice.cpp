@@ -40,7 +40,8 @@
 #define GOOGLE_API 0
 
 #define PROP_KEYMINT_TEST "persist.vendor.keymint.test"
-#define PROP_VENDOR_BUILD_TYPE "ro.vendor.build.type"
+#define PROP_BUILD_FINGERPRINT "ro.build.fingerprint"
+#define PROP_DEBUGGABLE "ro.debuggable"
 
 namespace aidl::android::hardware::security::keymint {
 using cppbor::Bstr;
@@ -572,13 +573,17 @@ getCertificateChain(std::vector<uint8_t>& chainBuffer, std::vector<Certificate>&
 }
 
 static bool isErrorOverrideBlocked() {
-    constexpr char PROP_USER_BUILD[] = "user";
-    constexpr char PROP_ALLOW_TEST[] = "allow";
+    constexpr char kQtiBuildPrefix[] = "qti/";
+    constexpr char kAllowTestValue[] = "true";
 
-    const std::string buildType = ::android::base::GetProperty(PROP_VENDOR_BUILD_TYPE, "");
-    const std::string keymintTest = ::android::base::GetProperty(PROP_KEYMINT_TEST, "");
+    const bool isDebuggable = ::android::base::GetIntProperty(PROP_DEBUGGABLE, 0) == 1;
+    const std::string buildFingerprint = ::android::base::GetProperty(PROP_BUILD_FINGERPRINT, "");
+    const std::string keymintTestProp = ::android::base::GetProperty(PROP_KEYMINT_TEST, "");
 
-    return (buildType == PROP_USER_BUILD) || (keymintTest == PROP_ALLOW_TEST);
+    const bool isQtiBuild = !buildFingerprint.empty() &&
+                            buildFingerprint.find(kQtiBuildPrefix) != std::string::npos;
+
+    return ((!isQtiBuild && !isDebuggable) || (keymintTestProp == kAllowTestValue));
 }
 
 ScopedAStatus JavacardKeyMintDevice::setAdditionalAttestationInfo(const vector<KeyParameter>& info) {
