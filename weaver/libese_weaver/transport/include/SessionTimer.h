@@ -21,7 +21,8 @@
 #include <iostream>
 #include <android-base/logging.h>
 #include <android-base/properties.h>
-#include <csignal>
+#include <signal.h>
+#include <time.h>
 #include <unistd.h>
 #include <atomic>
 #ifdef OMAPI_TRANSPORT
@@ -35,7 +36,7 @@
 class Timer {
 public:
     int count = 0;
-    Timer() : is_running(false) {}
+    Timer() : timer_id(0), is_running(false) {}
 
     ~Timer() {
         stop();
@@ -43,26 +44,32 @@ public:
 
     // Start the timer with the specified timeout and call closeChannel if timeout is reached
     void start(int timeout_ms, void* ptr) {
-        int final_timeout = 0;
         if (!is_running) {
             is_running = true;
-#ifdef OMAPI_TRANSPORT
-            transport_ptr = ptr;
-#else
-            transport_ptr_a = ptr;
-#endif
-            
-            if (std::signal(SIGALRM, &timerCallback) == SIG_ERR) {
-                LOG(ERROR) << "Error setting up signal handler for SIGALRM. " << std::endl;
+
+            // Set up the timer
+            struct sigevent sev;
+            sev.sigev_notify = SIGEV_THREAD;
+            sev.sigev_value.sival_ptr = ptr;
+            sev.sigev_notify_function = &timerCallback;
+            sev.sigev_notify_attributes = nullptr;
+
+            struct itimerspec its;
+            its.it_value.tv_sec = timeout_ms / 1000;
+            its.it_value.tv_nsec = (timeout_ms % 1000) * 1000000;
+            its.it_interval.tv_sec = 0;
+            its.it_interval.tv_nsec = 0;
+
+            if (timer_create(CLOCK_BOOTTIME_ALARM, &sev, &timer_id) == -1) {
+                LOG(ERROR) << "Failed to create timer" << std::endl;
+                is_running = false;
                 return;
             }
-            
-            if (timeout_ms >= remaining) final_timeout = timeout_ms;
-            else final_timeout = remaining;
 
-            LOG(DEBUG) << "Start with final_timeout: " << final_timeout;
-            if (alarm(final_timeout / 1000) != 0) {
-                LOG(ERROR) << "Error setting the alarm. " << std::endl;
+            if (timer_settime(timer_id, 0, &its, nullptr) == -1) {
+                LOG(ERROR) << "Failed to set timer" << std::endl;
+                timer_delete(timer_id);
+                is_running = false;
                 return;
             }
         }
@@ -72,27 +79,21 @@ public:
     void stop() {
         if (is_running) {
             is_running = false;
-            remaining = alarm(0) * 1000;
-            LOG(DEBUG) << "Stop remaining time: " << remaining;
+            timer_delete(timer_id);
+            timer_id = 0;
         }
     }
 
 private:
+    timer_t timer_id;
     std::atomic<bool> is_running;
-    int remaining = 0;
-#ifdef OMAPI_TRANSPORT
-    static void* transport_ptr;
-#else
-    static void* transport_ptr_a;
-#endif
 
     // Static callback function required by timer_create
-    static void timerCallback(int signal) {
-        LOG(DEBUG) << "signal: " << signal;
+    static void timerCallback(sigval sv) {
 #ifdef OMAPI_TRANSPORT
-        keymint::javacard::OmapiTransport *transport = (keymint::javacard::OmapiTransport*)transport_ptr;
+        keymint::javacard::OmapiTransport *transport = (keymint::javacard::OmapiTransport*)sv.sival_ptr;
 #else
-        keymint::javacard::HalToHalTransport *transport = (keymint::javacard::HalToHalTransport*)transport_ptr_a;
+        keymint::javacard::HalToHalTransport *transport = (keymint::javacard::HalToHalTransport*)sv.sival_ptr;
 #endif
         if (transport != nullptr) {
             transport->closeConnection();

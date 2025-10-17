@@ -75,10 +75,6 @@
 #define MAX_SEND_COUNT 5
 #define INIT_RETRY_DELAY 1000 //ms
 
-#ifdef OMAPI_TRANSPORT
-void* Timer::transport_ptr = nullptr;
-#endif
-
 namespace keymint::javacard {
 
 class SEListener : public ::aidl::android::se::omapi::BnSecureElementListener {};
