@@ -198,11 +198,9 @@ ScopedAStatus JavacardKeyMintDevice::importWrappedKey(const vector<uint8_t>& wra
     std::vector<uint8_t> transitKey;
     std::vector<uint8_t> secureKey;
     std::vector<uint8_t> tag;
-    vector<KeyParameter> authList;
-    KeyFormat keyFormat;
     std::vector<uint8_t> wrappedKeyDescription;
-    keymaster_error_t errorCode = parseWrappedKey(wrappedKeyData, iv, transitKey, secureKey, tag,
-                                                  authList, keyFormat, wrappedKeyDescription);
+    keymaster_error_t errorCode =
+        parseWrappedKey(wrappedKeyData, iv, transitKey, secureKey, tag, wrappedKeyDescription);
     if (errorCode != KM_ERROR_OK) {
         LOG(ERROR) << "Error in parse wrapped key in importWrappedKey.";
         return km_utils::kmError2ScopedAStatus(errorCode);
@@ -217,7 +215,7 @@ ScopedAStatus JavacardKeyMintDevice::importWrappedKey(const vector<uint8_t>& wra
     }
     // Finish the import
     std::tie(item, errorCode) = sendFinishImportWrappedKeyCmd(
-        authList, keyFormat, secureKey, tag, iv, wrappedKeyDescription, passwordSid, biometricSid);
+        secureKey, tag, iv, wrappedKeyDescription, passwordSid, biometricSid);
     if (errorCode != KM_ERROR_OK) {
         LOG(ERROR) << "Error in send finish import wrapped key in importWrappedKey.";
         return km_utils::kmError2ScopedAStatus(errorCode);
@@ -250,13 +248,10 @@ JavacardKeyMintDevice::sendBeginImportWrappedKeyCmd(const std::vector<uint8_t>& 
 
 std::tuple<std::unique_ptr<Item>, keymaster_error_t>
 JavacardKeyMintDevice::sendFinishImportWrappedKeyCmd(
-    const vector<KeyParameter>& keyParams, KeyFormat keyFormat,
     const std::vector<uint8_t>& secureKey, const std::vector<uint8_t>& tag,
     const std::vector<uint8_t>& iv, const std::vector<uint8_t>& wrappedKeyDescription,
     int64_t passwordSid, int64_t biometricSid) {
     Array request;
-    cbor_.addKeyparameters(request, keyParams);
-    request.add(static_cast<uint64_t>(keyFormat));
     request.add(std::vector<uint8_t>(secureKey));
     request.add(std::vector<uint8_t>(tag));
     request.add(std::vector<uint8_t>(iv));
@@ -409,7 +404,6 @@ keymaster_error_t
 JavacardKeyMintDevice::parseWrappedKey(const vector<uint8_t>& wrappedKeyData,
                                        std::vector<uint8_t>& iv, std::vector<uint8_t>& transitKey,
                                        std::vector<uint8_t>& secureKey, std::vector<uint8_t>& tag,
-                                       vector<KeyParameter>& authList, KeyFormat& keyFormat,
                                        std::vector<uint8_t>& wrappedKeyDescription) {
     KeymasterBlob kmIv;
     KeymasterKeyBlob kmTransitKey;
@@ -433,8 +427,6 @@ JavacardKeyMintDevice::parseWrappedKey(const vector<uint8_t>& wrappedKeyData,
     transitKey = km_utils::kmBlob2vector(kmTransitKey);
     secureKey = km_utils::kmBlob2vector(kmSecureKey);
     tag = km_utils::kmBlob2vector(kmTag);
-    authList = km_utils::kmParamSet2Aidl(authSet);
-    keyFormat = static_cast<KeyFormat>(kmKeyFormat);
     wrappedKeyDescription = km_utils::kmBlob2vector(kmWrappedKeyDescription);
     return KM_ERROR_OK;
 }
