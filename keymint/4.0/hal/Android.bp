@@ -17,7 +17,6 @@ cc_library {
     name: "libjc_keymint-thales",
     defaults: [
     	"keymaster_defaults",
-        "keymint_use_latest_hal_aidl_ndk_shared",
     ],
     srcs: [
         "CborConverter.cpp",
@@ -44,6 +43,7 @@ cc_library {
         "libcutils",
         "libjc_keymint_transport-thales",
         "libbinder_ndk",
+        "android.hardware.security.keymint-V4-ndk",
     ],
     export_include_dirs: [
         ".",
@@ -90,9 +90,6 @@ cc_binary {
         "-Wall",
         "-Wextra",
     ],
-    defaults: [
-        "keymint_use_latest_hal_aidl_ndk_shared",
-    ],
     shared_libs: [
         "android.hardware.security.rkp-V3-ndk",
         "android.hardware.security.sharedsecret-V1-ndk",
@@ -108,6 +105,7 @@ cc_binary {
         "libutils",
         "android.se.omapi-V1-ndk",
         "android.hardware.secure_element-V1-ndk",
+        "android.hardware.security.keymint-V4-ndk",
     ],
     srcs: [
         "service.cpp",
