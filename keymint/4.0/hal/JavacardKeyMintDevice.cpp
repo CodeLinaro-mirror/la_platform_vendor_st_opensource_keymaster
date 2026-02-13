@@ -39,6 +39,9 @@
 
 #define GOOGLE_API 0
 
+#define PROP_KEYMINT_TEST "persist.vendor.keymint.test"
+#define PROP_BUILD_FINGERPRINT "ro.build.fingerprint"
+#define PROP_DEBUGGABLE "ro.debuggable"
 
 namespace aidl::android::hardware::security::keymint {
 using cppbor::Bstr;
@@ -59,8 +62,8 @@ keymaster_error_t
 getCertificateChain(std::vector<uint8_t>& chainBuffer, std::vector<Certificate>& certChain);
 
 ScopedAStatus JavacardKeyMintDevice::defaultHwInfo(KeyMintHardwareInfo* info) {
-    info->versionNumber = 2;
-    info->keyMintAuthorName = "Google";
+    info->versionNumber = 1;
+    info->keyMintAuthorName = "Thales";
     info->keyMintName = "JavacardKeymintDevice";
     info->securityLevel = securitylevel_;
     info->timestampTokenRequired = true;
@@ -569,20 +572,33 @@ getCertificateChain(std::vector<uint8_t>& chainBuffer, std::vector<Certificate>&
     return KM_ERROR_OK;
 }
 
+static bool isErrorOverrideBlocked() {
+    constexpr char kQtiBuildPrefix[] = "qti/";
+    constexpr char kAllowTestValue[] = "true";
+
+    const bool isDebuggable = ::android::base::GetIntProperty(PROP_DEBUGGABLE, 0) == 1;
+    const std::string buildFingerprint = ::android::base::GetProperty(PROP_BUILD_FINGERPRINT, "");
+    const std::string keymintTestProp = ::android::base::GetProperty(PROP_KEYMINT_TEST, "");
+
+    const bool isQtiBuild = !buildFingerprint.empty() &&
+                            buildFingerprint.find(kQtiBuildPrefix) != std::string::npos;
+
+    return ((!isQtiBuild && !isDebuggable) || (keymintTestProp == kAllowTestValue));
+}
+
 ScopedAStatus JavacardKeyMintDevice::setAdditionalAttestationInfo(const vector<KeyParameter>& info) {
     cppbor::Array request;
     // add key params
     cbor_.addKeyparameters(request, info);
     auto [item, err] = card_->sendRequest(Instruction::INS_SET_ATT_MODULE_INFO_CMD, request);
-    //WAR: override setAdditionalAttestationInfo failure to void bootup failure
     if (err != KM_ERROR_OK) {
-        LOG(ERROR) << "Error in sending in setAdditionalAttestationInfo err: " << err;
-        err = KM_ERROR_OK;
-    }
-
-    if (err != KM_ERROR_OK) {
-        LOG(ERROR) << "Error in sending in setAdditionalAttestationInfo.";
-        return km_utils::kmError2ScopedAStatus(err);
+        if (isErrorOverrideBlocked()) {
+            LOG(ERROR) << "Error in sending in setAdditionalAttestationInfo.";
+            return km_utils::kmError2ScopedAStatus(err);
+        } else {
+            LOG(ERROR) << "Override Error in sending in setAdditionalAttestationInfo ";
+            return ScopedAStatus::ok();
+        }
     }
     return ScopedAStatus::ok();
 }
