@@ -31,6 +31,14 @@ ENABLE_ESE_ST_KEYMINT_FEATURE_XML := false
 ENABLE_ESE_ST_KEYMINT_SPLIT_MANIFEST := false
 endif
 
+#malabar specific build rules
+ifeq ($(TARGET_BOARD_PLATFORM),malabar)
+TARGET_USES_ESE_ST_KEYMINT := true
+TARGET_USES_ESE_ST_AUTHSECRET := false
+ENABLE_ESE_ST_KEYMINT_FEATURE_XML := false
+ENABLE_ESE_ST_KEYMINT_SPLIT_MANIFEST := false
+endif
+
 #sun specific build rules
 ifeq ($(TARGET_BOARD_PLATFORM),chora)
 TARGET_USES_ESE_ST_KEYMINT := true
