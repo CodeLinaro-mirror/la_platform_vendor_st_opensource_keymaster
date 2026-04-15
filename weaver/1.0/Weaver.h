@@ -54,6 +54,8 @@ struct Weaver : public BnWeaver {
                               WeaverReadResponse* _aidl_return) override;
     ::ndk::ScopedAStatus write(int32_t in_slotId, const std::vector<uint8_t>& in_key,
                                const std::vector<uint8_t>& in_value) override;
+    ::ndk::ScopedAStatus warmUp() override;                          
+    ::ndk::ScopedAStatus getTimeOut(int32_t slotId, int64_t* _aidl_return) override;
 };
 
 }  // namespace aidl::android::hardware::weaver

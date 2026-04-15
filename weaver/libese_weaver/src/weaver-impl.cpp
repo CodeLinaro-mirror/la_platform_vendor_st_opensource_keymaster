@@ -211,6 +211,52 @@ Status_Weaver WeaverImpl::Write(uint32_t slotId,
   return status;
 }
 
+ /**
+  * \brief Function to warm up the eSE
+  */
+Status_Weaver WeaverImpl::WarmUp() {
+    return WEAVER_STATUS_OK;
+}
+
+/**
+ * \brief Function to get current throttling period
+ * \param[in]    slotId -     input slotId to query
+ * \param[out]   timeout -      returned timeout value in milliseconds
+ *
+ * \retval This function return Weaver_STATUS_OK (0) in case of success
+ *         In case of failure returns other Status_Weaver.
+ */
+Status_Weaver WeaverImpl::GetTimeOut(uint32_t slotId, uint64_t &timeout) {
+    LOG_D(TAG, "Entry");
+    
+    // 1. Defensive checks
+    RETURN_IF_NULL(mTransport, WEAVER_STATUS_FAILED, "Transport is NULL");
+    RETURN_IF_NULL(mParser, WEAVER_STATUS_FAILED, "Parser is NULL");
+
+    Status_Weaver status = WEAVER_STATUS_FAILED;
+    std::vector<uint8_t> cmd;
+    std::vector<uint8_t> resp;
+
+    LOG_D(TAG, "GetTimeOut for Slot (%u)", slotId);
+
+    // 2. Frame, Send, and verify communication success
+    if (mParser->FrameGetTimeoutCmd(slotId, cmd) &&
+        mTransport->Send(cmd, resp)) {
+        
+        // 3. Parse the response
+        if (mParser->ParseGetTimeoutResponse(resp, timeout)) {
+            status = WEAVER_STATUS_OK;
+        } else {
+            LOG_E(TAG, "Failed to parse GetTimeout response for slot (%u)", slotId);
+        }
+    } else {
+        LOG_E(TAG, "Failed to perform GetTimeout request for slot (%u)", slotId);
+    }
+
+    LOG_D(TAG, "Exit");
+    return status;
+}
+
 /**
  * \brief Function to de-initilize Weaver Interface
  *

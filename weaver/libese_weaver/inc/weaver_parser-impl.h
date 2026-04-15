@@ -75,6 +75,31 @@ public:
    */
   bool FrameReadCmd(uint32_t slotId, const std::vector<uint8_t> &key,
                     std::vector<uint8_t> &request);
+                    
+/**
+ * \brief Function to Frame weaver applet request command to get current throttling period
+ *
+ * \param[in]    slotId -  input slotId to query
+ * \param[out]   request - framed getTimeout command as vector
+ *
+ * \retval This function return true in case of success
+ *         In case of failure returns false.
+ */ 
+  bool FrameGetTimeoutCmd(uint32_t slotId,
+                    std::vector<uint8_t> &request);
+                    
+  /**
+ * \brief Function to Parse getTimeout response
+ *
+ * \param[in]    slotId -  input slotId to query
+ * \param[out]   timeoutMs  - parsed timeout Information read out from applet
+ * response.
+ *
+ * \retval This function return true in case of success
+ *         In case of failure returns false.
+ */
+  bool ParseGetTimeoutResponse(const std::vector<uint8_t> &response, 
+                    uint64_t &timeoutMs);     
 
   /**
    * \brief Function to Frame weaver applet request command for write

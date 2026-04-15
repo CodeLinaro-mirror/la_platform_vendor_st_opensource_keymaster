@@ -47,11 +47,13 @@ std::once_flag WeaverParserImpl::s_instanceFlag;
 #define INS_GET_SLOT 0x02
 #define INS_READ 0x06
 #define INS_WRITE 0x04
+#define INS_GET_TIMEOUT 0x0C
 #define P1 0x00
 #define P2 0x00
 #define LE_READ_CMD 0x11
 #define LE_GET_SLOT_CMD 0x04
 #define LE_WRITE_CMD 0x00
+#define LE_GET_TIMEOUT_CMD 0x04
 
 /* Error code for weaver commands response */
 #define SUCCESS_SW1 0x90
@@ -378,3 +380,72 @@ bool WeaverParserImpl::getAppletId(std::vector<uint8_t> &aid) {
   LOG_D(TAG, "Exit");
   return status;
 }
+
+/**
+ * \brief Function to Frame weaver applet request command to get current throttling period
+ *
+ * \param[in]    slotId -  input slotId to query
+ * \param[out]   request - framed getTimeout command as vector
+ *
+ * \retval This function return true in case of success
+ *         In case of failure returns false.
+ */ 
+bool WeaverParserImpl::FrameGetTimeoutCmd(uint32_t slotId,
+                                          std::vector<uint8_t> &request) {
+  LOG_D(TAG, "Entry");
+  request.clear();
+  
+  // 1. Header (CLA, INS, P1, P2)
+  request.push_back(CLA);
+  request.push_back(INS_GET_TIMEOUT);
+  request.push_back(P1);
+  request.push_back(P2);
+  
+  // 2. Data Length (Lc)
+  request.push_back(0x04);
+
+  /* convert and insert 4 Byte integer slot id as byte by byte to vector */
+  request.push_back(SHIFT_MASK & (slotId >> BYTE1_MSB_POS));
+  request.push_back(SHIFT_MASK & (slotId >> BYTE2_MSB_POS));
+  request.push_back(SHIFT_MASK & (slotId >> BYTE3_MSB_POS));
+  request.push_back(SHIFT_MASK & slotId);
+  
+  // 4. Expected response length (Le)
+  request.push_back(LE_GET_TIMEOUT_CMD);
+  
+  LOG_D(TAG, "Exit");
+  return true;
+}
+
+  /**
+ * \brief Function to Parse getTimeout response
+ *
+ * \param[in]    slotId -  input slotId to query
+ * \param[out]   timeoutMs  - parsed timeout Information read out from applet
+ * response.
+ *
+ * \retval This function return true in case of success
+ *         In case of failure returns false.
+ */
+bool WeaverParserImpl::ParseGetTimeoutResponse(const std::vector<uint8_t> &response, 
+                                               uint64_t &timeoutMs) {
+    if (response.empty()) {
+        timeoutMs = 0;
+        return true;
+    }
+
+    if (response.size() == 4) {
+        uint32_t seconds = (response[0] << 24) | (response[1] << 16) | (response[2] << 8)  | (response[3]);
+        timeoutMs = static_cast<int64_t>(seconds) * 1000;
+        return true;
+    }
+    
+    if (response.size() >= 6) {
+        uint32_t seconds = (response[0] << 24) | (response[1] << 16) | (response[2] << 8)  | (response[3]);
+        timeoutMs = static_cast<int64_t>(seconds) * 1000;
+        return true;
+    }
+
+    return false;
+}
+

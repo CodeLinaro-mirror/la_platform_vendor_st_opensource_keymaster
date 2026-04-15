@@ -11,7 +11,7 @@ cc_binary {
     ],
 
     shared_libs: [
-        "android.hardware.weaver-V2-ndk",
+        "android.hardware.weaver-V3-ndk",
         "ese_weaver",
         "libbase",
         "liblog",

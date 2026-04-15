@@ -116,4 +116,45 @@ Weaver::Weaver() {
     return ::ndk::ScopedAStatus::ok();
 }
 
+
+::ndk::ScopedAStatus Weaver::warmUp() {
+    ALOGI("warmUp API ENTRY");
+    return ::ndk::ScopedAStatus::ok();
+}
+
+
+::ndk::ScopedAStatus Weaver::getTimeOut(int32_t slotId, int64_t* _aidl_return) {
+    ALOGI("getTimeout API ENTRY for slot %d", slotId);
+
+    if (pInterface == NULL) {
+        ALOGI("Weaver Interface not defined");
+        return ndk::ScopedAStatus(AStatus_fromServiceSpecificError(Weaver::STATUS_FAILED));
+    }
+
+    SlotInfo slotInfo;
+    Status_Weaver cfgStatus = pInterface->GetSlots(slotInfo);
+    if (cfgStatus != WEAVER_STATUS_OK) {
+        ALOGE("getTimeout: failed to get slot info");
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+    }
+
+    if (slotId < 0 || static_cast<uint32_t>(slotId) >= slotInfo.slots) {
+        ALOGE("getTimeout invalid slot: %d", slotId);
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
+    
+    uint64_t timeoutInSeconds = 0;
+    Status_Weaver status = pInterface->GetTimeOut(slotId, timeoutInSeconds);
+
+    if (status == WEAVER_STATUS_OK) {
+        *_aidl_return = static_cast<int64_t>(timeoutInSeconds);
+        ALOGI("getTimeout success: %lld ms", (long long)*_aidl_return);
+        return ::ndk::ScopedAStatus::ok();
+    } else {
+        ALOGE("getTimeout failed with status: %d", status);
+        return ndk::ScopedAStatus(AStatus_fromServiceSpecificError(Weaver::STATUS_FAILED));
+    }
+}
+
+
 }  // namespace aidl::android::hardware::weaver
