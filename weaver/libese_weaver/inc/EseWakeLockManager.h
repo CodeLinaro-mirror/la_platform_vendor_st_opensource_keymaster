@@ -15,7 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
- /******************************************************************************
+  /******************************************************************************
  **
  ** The original Work has been changed by THALES.
  **
@@ -36,27 +36,31 @@
  *********************************************************************************/
 #pragma once
 
-#include <aidl/android/hardware/weaver/BnWeaver.h>
+#include <chrono>
+#include <condition_variable>
+#include <cstdint>
+#include <mutex>
+#include <thread>
 
-namespace aidl::android::hardware::weaver {
+class EseWakeLockManager {
+public:
+    EseWakeLockManager();
+    ~EseWakeLockManager();
 
-using ::aidl::android::hardware::weaver::WeaverConfig;
-using ::aidl::android::hardware::weaver::WeaverReadResponse;
+    void maintainActive(int64_t durationMs);
 
-struct Weaver : public BnWeaver {
-  public:
-    Weaver();
-    virtual ~Weaver() {}
+private:
+    void workerLoop();
 
-    // Methods from ::android::hardware::weaver::IWeaver follow.
-    ::ndk::ScopedAStatus getConfig(WeaverConfig* _aidl_return) override;
-    ::ndk::ScopedAStatus read(int32_t in_slotId, const std::vector<uint8_t>& in_key,
-                              WeaverReadResponse* _aidl_return) override;
-    ::ndk::ScopedAStatus write(int32_t in_slotId, const std::vector<uint8_t>& in_key,
-                               const std::vector<uint8_t>& in_value) override;
-    ::ndk::ScopedAStatus warmUp() override;                          
-    ::ndk::ScopedAStatus getTimeOut(int32_t slotId, int64_t* _aidl_return) override;
-    ::ndk::ScopedAStatus getMaxRemainingTime(int64_t* _aidl_return) override;
+    bool acquireWakeLock();
+    bool releaseWakeLock();
+
+    std::mutex mMutex;
+    std::condition_variable mCv;
+    std::thread mWorker;
+
+    bool mStop = false;
+    bool mWakeLockHeld = false;
+
+    std::chrono::steady_clock::time_point mExpiryTime;
 };
-
-}  // namespace aidl::android::hardware::weaver

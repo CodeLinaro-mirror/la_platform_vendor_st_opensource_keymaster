@@ -48,12 +48,14 @@ std::once_flag WeaverParserImpl::s_instanceFlag;
 #define INS_READ 0x06
 #define INS_WRITE 0x04
 #define INS_GET_TIMEOUT 0x0C
+#define INS_GET_MAX_REMAINING_TIME 0x52
 #define P1 0x00
 #define P2 0x00
 #define LE_READ_CMD 0x11
 #define LE_GET_SLOT_CMD 0x04
 #define LE_WRITE_CMD 0x00
 #define LE_GET_TIMEOUT_CMD 0x04
+#define LE_GET_MAX_REMAINING_TIME 0x00
 
 /* Error code for weaver commands response */
 #define SUCCESS_SW1 0x90
@@ -449,3 +451,80 @@ bool WeaverParserImpl::ParseGetTimeoutResponse(const std::vector<uint8_t> &respo
     return false;
 }
 
+  /**
+ * \brief Parse the response of GetMaxRemainingTime command from Weaver applet
+ *
+ * This function extracts the remaining throttling timeout (in milliseconds)
+ * from the response received from the Weaver applet.
+ *
+ * \param[in]     response   - Raw response buffer received from the applet.
+ * \param[out]    timeoutMs  - Parsed remaining timeout in milliseconds.
+ *
+ * \retval WEAVER_STATUS_OK           In case of successful parsing.
+ * \retval WEAVER_STATUS_FAILED       In case of invalid or malformed response.
+ */
+Status_Weaver WeaverParserImpl::ParseMaxRemainingTimeResponse(const std::vector<uint8_t> &response, 
+                                                             int64_t &timeoutMs) {
+    LOG_D(TAG, "ParseMaxRemainingTimeResponse Entry");
+
+    timeoutMs = 0;
+
+    if (response.size() < RES_STATUS_SIZE) {
+        LOG_E(TAG, "Invalid response size");
+        return WEAVER_STATUS_FAILED;
+    }
+
+    if (!isSuccess(response)) {
+        LOG_E(TAG, "Applet returned failure");
+        return WEAVER_STATUS_FAILED;
+    }
+
+    if (response.size() < RES_STATUS_SIZE + 4) {
+        LOG_E(TAG, "Missing remaining time field");
+        return WEAVER_STATUS_FAILED;
+    }
+
+    const size_t offset = response.size() - RES_STATUS_SIZE - 4;
+
+    uint32_t value = (static_cast<uint32_t>(response[offset]) << 24) |
+                     (static_cast<uint32_t>(response[offset + 1]) << 16) |
+                     (static_cast<uint32_t>(response[offset + 2]) << 8) |
+                     static_cast<uint32_t>(response[offset + 3]);
+
+    // Use this if applet spec says value is in seconds:
+    timeoutMs = static_cast<int64_t>(value) * 1000;
+
+    // Use this instead if applet spec says value is already in ms:
+    // timeoutMs = static_cast<int64_t>(value);
+
+    LOG_D(TAG, "DEBUG_MAX_REMAINING parser entered");
+    LOG_D(TAG, "DEBUG_MAX_REMAINING parsed timeoutMs=%lld", (long long)timeoutMs);
+
+    return WEAVER_STATUS_OK;
+}
+
+/**
+ * \brief Frame the GetMaxRemainingTime command for Weaver applet
+ *
+ * This function constructs the command APDU/request buffer used to query
+ * the remaining throttling timeout from the Weaver applet.
+ *
+ * \param[out]    request  - Buffer where the framed command will be stored.
+ *
+ * \retval WEAVER_STATUS_OK           In case of successful framing.
+ * \retval WEAVER_STATUS_FAILED       In case of failure during command construction.
+ */
+Status_Weaver WeaverParserImpl::FrameGetMaxRemainingTimeCmd(std::vector<uint8_t> &request) {
+  LOG_D(TAG, "Entry");
+  request.clear();
+  
+  // Example: Check if CLA/INS are valid before framing
+  request.push_back(CLA);
+  request.push_back(INS_GET_MAX_REMAINING_TIME);
+  request.push_back(P1);
+  request.push_back(P2);
+  request.push_back(LE_GET_MAX_REMAINING_TIME);
+  
+  LOG_D(TAG, "Exit");
+  return WEAVER_STATUS_OK;
+}

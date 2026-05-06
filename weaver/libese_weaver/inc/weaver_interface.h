@@ -82,6 +82,7 @@ public:
    */
   virtual Status_Weaver Write(uint32_t slotId, const std::vector<uint8_t> &key,
                               const std::vector<uint8_t> &value) = 0;
+							  
    /**
   * \brief Function to warm up the eSE
   */
@@ -96,6 +97,18 @@ public:
  *         In case of failure returns other Status_Weaver.
  */
   virtual Status_Weaver GetTimeOut(uint32_t slotId, uint64_t& timeout) = 0;
+                      
+  //virtual Status_Weaver WarmUp() = 0;
+  //virtual Status_Weaver GetTimeOut(uint32_t slotId, uint64_t& timeout) = 0;
+  
+/**
+  * \brief Virtual function to get maximum remaining throttling time
+  * \param[out]    remainingTime  - remaining throttling time in milliseconds
+  *
+  * \retval This function return Weaver_STATUS_OK (0) in case of success
+  *         In case of failure returns other Status_Weaver.
+  */
+  virtual Status_Weaver GetMaxRemainingTime(int64_t &remainingTime) = 0;
 
   /**
    * \brief virtual Function to de-initilize Weaver Interface

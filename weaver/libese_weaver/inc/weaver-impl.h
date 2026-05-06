@@ -42,6 +42,7 @@
 #include <weaver_interface.h>
 #include <weaver_parser.h>
 #include <weaver_transport.h>
+#include "EseWakeLockManager.h"
 
 class WeaverImpl : public WeaverInterface {
 public:
@@ -99,7 +100,34 @@ public:
  * \retval This function return Weaver_STATUS_OK (0) in case of success
  *         In case of failure returns other Status_Weaver.
  */
- Status_Weaver GetTimeOut(uint32_t slotId, uint64_t &timeout) override;                     
+ Status_Weaver GetTimeOut(uint32_t slotId, uint64_t &timeout) override;  
+ 
+ /**
+ * \brief Retrieve maximum remaining throttling time from Weaver applet
+ *
+ * This function queries the Weaver applet to obtain the maximum remaining
+ * throttling timeout. The returned value indicates how long the device
+ * remains in a throttled state.
+ *
+ * \param[out]    remainingTime  - Remaining throttling time in milliseconds.
+ *
+ * \retval WEAVER_STATUS_OK           In case of successful retrieval.
+ * \retval Other Status_Weaver        In case of communication or parsing failure.
+ */
+Status_Weaver GetMaxRemainingTime(int64_t &remainingTime);
+
+/**
+ * \brief Maintain eSE active state using wake lock for a specified duration
+ *
+ * This function ensures that the embedded Secure Element (eSE) remains active
+ * during the throttling period by acquiring a wake lock for the specified
+ * duration. If a wake lock is already held, the active duration may be extended.
+ *
+ * \param[in]    durationMs  - Duration in milliseconds to keep the eSE active.
+ *
+ * \retval This function does not return a value.
+ */
+void MaintainESEActive(int64_t durationMs);
 
   /**
    * \brief Function to de-initilize Weaver Interface
@@ -146,6 +174,15 @@ private:
    * Same will be used for std::call_once
    */
   static void createInstance();
+  /**
+   * \brief eSE wake lock manager instance
+   *
+   * This member manages the lifecycle of the wake lock used to keep the
+   * embedded Secure Element (eSE) active during throttling periods.
+   * It handles acquisition, extension, and release of the wake lock
+   * based on remaining timeout.
+   */
+  EseWakeLockManager mEseWakeLockManager;
 };
 
 #endif /* _WEAVER_IMPL_H_ */

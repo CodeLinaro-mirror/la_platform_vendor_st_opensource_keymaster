@@ -116,7 +116,6 @@ Weaver::Weaver() {
     return ::ndk::ScopedAStatus::ok();
 }
 
-
 ::ndk::ScopedAStatus Weaver::warmUp() {
     ALOGI("warmUp API ENTRY");
     return ::ndk::ScopedAStatus::ok();
@@ -156,5 +155,33 @@ Weaver::Weaver() {
     }
 }
 
+::ndk::ScopedAStatus Weaver::getMaxRemainingTime(int64_t* _aidl_return) {
+    ALOGI("DEBUG_MAX: getMaxRemainingTime API ENTRY");
+
+    if (_aidl_return == nullptr) {
+        return ::ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
+
+    if (pInterface == nullptr) {
+        return ndk::ScopedAStatus(AStatus_fromServiceSpecificError(STATUS_FAILED));
+    }
+
+    int64_t remainingTime = 0;
+    Status_Weaver status = pInterface->GetMaxRemainingTime(remainingTime);
+
+    ALOGI("DEBUG_MAX: backend status=%d remainingTime=%lld",
+          status, (long long)remainingTime);
+
+    if (status == WEAVER_STATUS_OK) {
+        *_aidl_return = remainingTime;
+        return ::ndk::ScopedAStatus::ok();
+    }
+
+    if (status != WEAVER_STATUS_OK){
+        return ::ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+    }
+
+    return ndk::ScopedAStatus(AStatus_fromServiceSpecificError(STATUS_FAILED));
+}
 
 }  // namespace aidl::android::hardware::weaver

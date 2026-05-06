@@ -68,6 +68,15 @@ void WeaverImpl::createInstance() {
 /**
  * \brief Function to initilize Weaver Interface
  *
+ * This function initializes the Weaver interface and checks whether the
+ * embedded Secure Element (eSE) is currently under a throttling period
+ * (e.g., after a reboot). It queries the remaining throttling time using
+ * GetMaxRemainingTime() and, if a valid non-zero timeout is returned,
+ * maintains the eSE active by acquiring a wake lock for the remaining duration.
+ *
+ * A retry mechanism is used to handle cases where the applet is not ready
+ * immediately after initialization.
+ *
  * \retval This function return Weaver_STATUS_OK (0) in case of success
  *         In case of failure returns other Status_Weaver.
  */
@@ -84,6 +93,25 @@ Status_Weaver WeaverImpl::Init() {
     LOG_D(TAG, "Exit : FAILED");
     return WEAVER_STATUS_FAILED;
   }
+  
+  LOG_D(TAG, "Init: checking pending throttling after reboot");
+  int64_t remainingTimeMs = 0;
+  for (int i = 0; i < 10; i++) {
+    Status_Weaver status = GetMaxRemainingTime(remainingTimeMs);
+    if (status == WEAVER_STATUS_OK){
+        if(remainingTimeMs > 0) {
+          LOG_D(TAG, "Init: GetMaxRemainingTime retry=%d status=%d remaining=%lld",
+          i, status, (long long)remainingTimeMs);
+          LOG_D(TAG, "Init: pending throttling found, keeping eSE active");
+          MaintainESEActive(remainingTimeMs);
+        } else {
+          LOG_D(TAG, "No pending throttling period detected");
+        }
+        break;
+    }
+    usleep(1000 * 1000); // 1s
+}
+    
   LOG_D(TAG, "Exit : SUCCESS");
   return WEAVER_STATUS_OK;
 }
@@ -258,6 +286,41 @@ Status_Weaver WeaverImpl::GetTimeOut(uint32_t slotId, uint64_t &timeout) {
 }
 
 /**
+ * \brief Retrieve maximum remaining throttling time from Weaver applet
+ *
+ * This function sends a request to the Weaver applet to obtain the maximum
+ * remaining throttling timeout. The returned value indicates how long the
+ * device is still in a throttled state before normal operations can resume.
+ *
+ * \param[out]    remainingTime  - Remaining throttling time in milliseconds.
+ *
+ * \retval WEAVER_STATUS_OK           In case of successful retrieval.
+ * \retval WEAVER_STATUS_FAILED       In case of communication or parsing failure.
+ */
+Status_Weaver WeaverImpl::GetMaxRemainingTime(int64_t &remainingTime) {
+    LOG_D(TAG, "Entry");
+
+    std::vector<uint8_t> cmd, resp;
+
+    if (mParser->FrameGetMaxRemainingTimeCmd(cmd) != WEAVER_STATUS_OK)  {
+        LOG_E(TAG, "FrameGetMaxRemainingTimeCmd failed");
+        return WEAVER_STATUS_FAILED;
+    }
+
+    if (!mTransport->Send(cmd, resp)) {
+        LOG_E(TAG, "Send failed");
+        return WEAVER_STATUS_FAILED;
+    }
+
+    Status_Weaver status = mParser->ParseMaxRemainingTimeResponse(resp, remainingTime);
+
+    LOG_E(TAG, "DEBUG_MAX_IMPL: parse status=%d remaining=%lld",
+          status, (long long)remainingTime);
+    LOG_D(TAG, "Exit");
+    return status;
+}
+
+/**
  * \brief Function to de-initilize Weaver Interface
  *
  * \retval This function return Weaver_STATUS_OK (0) in case of success
@@ -270,4 +333,28 @@ Status_Weaver WeaverImpl::DeInit() {
   }
   LOG_D(TAG, "Exit");
   return WEAVER_STATUS_OK;
+}
+
+/**
+ * \brief Maintain eSE active state using wake lock for a specified duration
+ *
+ * This function ensures that the embedded Secure Element (eSE) remains active
+ * for the given duration by delegating wake lock management to
+ * EseWakeLockManager. If a wake lock is already held, the active period will
+ * be extended if the new duration is longer.
+ *
+ * \param[in]    durationMs  - Duration in milliseconds to keep the eSE active.
+ *
+ * \retval This function does not return a value.
+ *         If durationMs <= 0, no action is performed.
+ */
+void WeaverImpl::MaintainESEActive(int64_t durationMs) {
+    if (durationMs <= 0) {
+        LOG_D(TAG, "No pending throttling period detected");
+        return;
+    }
+
+    LOG_D(TAG, "Maintaining eSE active for %lld ms", (long long)durationMs);
+
+    mEseWakeLockManager.maintainActive(durationMs);
 }
