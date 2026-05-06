@@ -116,6 +116,29 @@ public:
    */
   Status_Weaver ParseReadInfo(std::vector<uint8_t> response,
                               ReadRespInfo &readInfo);
+  
+  /**
+ * \brief Frame the GetMaxRemainingTime command for Weaver applet
+ *
+ *
+ * \param[out]    request  - Buffer where the framed command will be stored.
+ *
+ * \retval WEAVER_STATUS_OK           In case of successful framing.
+ * \retval WEAVER_STATUS_FAILED       In case of failure during command construction.
+ */
+  Status_Weaver FrameGetMaxRemainingTimeCmd(std::vector<uint8_t> &request);
+  
+  /**
+ * \brief Parse the response of GetMaxRemainingTime command from Weaver applet
+ *
+ *
+ * \param[in]     response   - Raw response buffer received from the applet.
+ * \param[out]    timeoutMs  - Parsed remaining timeout in milliseconds.
+ *
+ * \retval WEAVER_STATUS_OK           In case of successful parsing.
+ * \retval WEAVER_STATUS_FAILED       In case of invalid or malformed response.
+ */
+  Status_Weaver ParseMaxRemainingTimeResponse(const std::vector<uint8_t> &response, int64_t &timeoutMs);
 
   /**
    * \brief Function to check if response from applet is Success or not

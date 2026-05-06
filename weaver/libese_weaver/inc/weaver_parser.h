@@ -135,6 +135,35 @@ public:
    *         In case of failure returns false.
    */
   virtual bool getAppletId(std::vector<uint8_t> &aid) = 0;
+  
+  /**
+ * \brief Virtual function to frame GetMaxRemainingTime command
+ *
+ * This function constructs the request buffer (APDU/command) used to query
+ * the maximum remaining throttling time from the Weaver applet.
+ *
+ * \param[out]    request  - Buffer where the framed command will be stored.
+ *
+ * \retval This function return Weaver_STATUS_OK (0) in case of success
+ *         In case of failure returns other Status_Weaver.
+ */
+virtual Status_Weaver FrameGetMaxRemainingTimeCmd(std::vector<uint8_t> &request) = 0;
+
+/**
+ * \brief Virtual function to parse GetMaxRemainingTime response
+ *
+ * This function parses the response received from the Weaver applet and
+ * extracts the remaining throttling timeout value.
+ *
+ * \param[in]     response   - Raw response buffer received from the applet.
+ * \param[out]    timeoutMs  - Parsed remaining throttling time in milliseconds.
+ *
+ * \retval This function return Weaver_STATUS_OK (0) in case of success
+ *         In case of failure returns other Status_Weaver.
+ */
+virtual Status_Weaver ParseMaxRemainingTimeResponse(
+        const std::vector<uint8_t> &response,
+        int64_t &timeoutMs) = 0;
 
   /**
    * \brief virtual destructor for weaver parser
