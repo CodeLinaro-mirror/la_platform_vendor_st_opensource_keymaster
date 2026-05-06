@@ -34,3 +34,9 @@ ifeq ($(TARGET_BOARD_PLATFORM),malabar)
 TARGET_USES_ST_ESE_WEAVER := true
 ENABLE_ST_ESE_WEAVER_SPLIT_MANIFEST := false
 endif
+
+#Shikra specific build rules
+ifeq ($(TARGET_BOARD_PLATFORM),shikra)
+TARGET_USES_ST_ESE_WEAVER := true
+ENABLE_ST_ESE_WEAVER_SPLIT_MANIFEST := false
+endif
