@@ -16,6 +16,7 @@
  */
 #include <vector>
 #include <iomanip>
+#include <ostream>
 
 #include <EseTransportUtils.h>
 
