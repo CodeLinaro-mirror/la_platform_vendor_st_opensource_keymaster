@@ -122,7 +122,7 @@ Weaver::Weaver() {
 }
 
 
-::ndk::ScopedAStatus Weaver::getTimeOut(int32_t slotId, int64_t* _aidl_return) {
+::ndk::ScopedAStatus Weaver::getTimeout(int32_t slotId, int64_t* _aidl_return) {
     ALOGI("getTimeout API ENTRY for slot %d", slotId);
 
     if (pInterface == NULL) {
@@ -143,9 +143,10 @@ Weaver::Weaver() {
     }
     
     uint64_t timeoutInSeconds = 0;
-    Status_Weaver status = pInterface->GetTimeOut(slotId, timeoutInSeconds);
+    Status_Weaver status = pInterface->GetTimeout(slotId, timeoutInSeconds);
 
     if (status == WEAVER_STATUS_OK) {
+        // Conversion to ms already done in WeaverParserImpl::ParseGetTimeoutResponse.
         *_aidl_return = static_cast<int64_t>(timeoutInSeconds);
         ALOGI("getTimeout success: %lld ms", (long long)*_aidl_return);
         return ::ndk::ScopedAStatus::ok();
@@ -153,35 +154,6 @@ Weaver::Weaver() {
         ALOGE("getTimeout failed with status: %d", status);
         return ndk::ScopedAStatus(AStatus_fromServiceSpecificError(Weaver::STATUS_FAILED));
     }
-}
-
-::ndk::ScopedAStatus Weaver::getMaxRemainingTime(int64_t* _aidl_return) {
-    ALOGI("DEBUG_MAX: getMaxRemainingTime API ENTRY");
-
-    if (_aidl_return == nullptr) {
-        return ::ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
-    }
-
-    if (pInterface == nullptr) {
-        return ndk::ScopedAStatus(AStatus_fromServiceSpecificError(STATUS_FAILED));
-    }
-
-    int64_t remainingTime = 0;
-    Status_Weaver status = pInterface->GetMaxRemainingTime(remainingTime);
-
-    ALOGI("DEBUG_MAX: backend status=%d remainingTime=%lld",
-          status, (long long)remainingTime);
-
-    if (status == WEAVER_STATUS_OK) {
-        *_aidl_return = remainingTime;
-        return ::ndk::ScopedAStatus::ok();
-    }
-
-    if (status != WEAVER_STATUS_OK){
-        return ::ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
-    }
-
-    return ndk::ScopedAStatus(AStatus_fromServiceSpecificError(STATUS_FAILED));
 }
 
 }  // namespace aidl::android::hardware::weaver

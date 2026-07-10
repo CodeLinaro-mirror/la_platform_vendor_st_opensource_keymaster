@@ -100,7 +100,7 @@ public:
  * \retval This function return Weaver_STATUS_OK (0) in case of success
  *         In case of failure returns other Status_Weaver.
  */
- Status_Weaver GetTimeOut(uint32_t slotId, uint64_t &timeout) override;  
+ Status_Weaver GetTimeout(uint32_t slotId, uint64_t &timeout) override;  
  
  /**
  * \brief Retrieve maximum remaining throttling time from Weaver applet

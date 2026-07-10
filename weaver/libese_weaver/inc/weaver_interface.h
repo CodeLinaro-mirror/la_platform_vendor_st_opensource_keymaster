@@ -96,10 +96,8 @@ public:
  * \retval This function return Weaver_STATUS_OK (0) in case of success
  *         In case of failure returns other Status_Weaver.
  */
-  virtual Status_Weaver GetTimeOut(uint32_t slotId, uint64_t& timeout) = 0;
+  virtual Status_Weaver GetTimeout(uint32_t slotId, uint64_t& timeout) = 0;
                       
-  //virtual Status_Weaver WarmUp() = 0;
-  //virtual Status_Weaver GetTimeOut(uint32_t slotId, uint64_t& timeout) = 0;
   
 /**
   * \brief Virtual function to get maximum remaining throttling time

@@ -254,7 +254,7 @@ Status_Weaver WeaverImpl::WarmUp() {
  * \retval This function return Weaver_STATUS_OK (0) in case of success
  *         In case of failure returns other Status_Weaver.
  */
-Status_Weaver WeaverImpl::GetTimeOut(uint32_t slotId, uint64_t &timeout) {
+Status_Weaver WeaverImpl::GetTimeout(uint32_t slotId, uint64_t &timeout) {
     LOG_D(TAG, "Entry");
     
     // 1. Defensive checks
