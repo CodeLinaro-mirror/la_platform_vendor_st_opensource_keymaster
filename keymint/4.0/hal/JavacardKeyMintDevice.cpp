@@ -37,7 +37,7 @@
 #include "JavacardKeyMintOperation.h"
 #include "JavacardSharedSecret.h"
 
-#define GOOGLE_API 0
+#define GOOGLE_API 1
 
 #define PROP_KEYMINT_TEST "persist.vendor.keymint.test"
 #define PROP_BUILD_FINGERPRINT "ro.build.fingerprint"
